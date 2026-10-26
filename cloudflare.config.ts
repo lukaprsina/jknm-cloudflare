@@ -13,6 +13,7 @@ const responseStore = await createWorkersResponseStoreServiceBindingConfig({
 export const responseStoreServiceBinding = responseStore.serviceBindingWorker;
 
 export default defineConfig({
+  accountId: "a7295fea7e66c96cf8cbcb5be46dc874",
   worker: defineWorker({
     ...responseStore.applicationWorker,
     name: "jknm-cloudflare",
