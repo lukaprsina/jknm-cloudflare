@@ -1,0 +1,15 @@
+node_modules
+.env*
+.next
+next-env.d.ts
+/dist/
+.vinext/
+.cloudflare/
+!.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# dotenv environment variable files
+.env
+.env.*
+!.env.example
