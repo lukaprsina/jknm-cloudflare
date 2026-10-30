@@ -1,6 +1,11 @@
 // Usage: scripts/spike-env.sh node scripts/spike-cache-test.mjs http://localhost:5199
 import pg from "pg";
 const base = process.argv[2];
+if (process.env.SPIKE_TOKEN) {
+  const f = globalThis.fetch;
+  globalThis.fetch = (u, o = {}) =>
+    f(u, { ...o, headers: { ...o.headers, "x-spike-token": process.env.SPIKE_TOKEN } });
+}
 const c = new pg.Client({ connectionString: process.env.SPIKE_DATABASE_URL });
 await c.connect();
 const dbCounter = async () =>

@@ -34,6 +34,7 @@ export default defineConfig({
       HYPERDRIVE: bindings.hyperdrive({ id: "00000000000000000000000000000000" }),
       SPIKE_TEXT: bindings.text("spike-text-value"),
       BETTER_AUTH_SECRET: bindings.secret(),
+      SPIKE_TOKEN: bindings.secret(),
     },
   }),
 });

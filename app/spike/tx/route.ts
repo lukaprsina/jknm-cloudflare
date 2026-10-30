@@ -78,6 +78,10 @@ export async function GET(req: Request) {
       }, mode),
     );
   } catch (e) {
-    return Response.json({ error: String((e as Error).message).slice(0, 300) }, { status: 500 });
+    const c = (e as { cause?: { message?: string; code?: string } }).cause;
+    return Response.json(
+      { error: String((e as Error).message).slice(0, 120), cause: c?.message, code: c?.code },
+      { status: 500 },
+    );
   }
 }

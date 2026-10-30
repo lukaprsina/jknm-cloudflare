@@ -26,7 +26,14 @@ function scoped<T>(e: E, ctx: ExecutionContext, fn: () => T, endEarly = false): 
 }
 
 export default {
-  fetch(request: Request, env: E, ctx: ExecutionContext) {
+  fetch(request: Request, env: E & { SPIKE_TOKEN?: string }, ctx: ExecutionContext) {
+    // Deployed probe guard: /spike/* touches the production DB (scratch table only).
+    if (
+      env.SPIKE_TOKEN &&
+      new URL(request.url).pathname.startsWith("/spike/") &&
+      request.headers.get("x-spike-token") !== env.SPIKE_TOKEN
+    )
+      return new Response("forbidden", { status: 403 });
     const endEarly = new URL(request.url).searchParams.get("end") === "1";
     return scoped(env, ctx, () => handler.fetch(request, env as never, ctx), endEarly);
   },
