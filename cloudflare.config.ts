@@ -29,6 +29,11 @@ export default defineConfig({
       ...responseStore.applicationWorker.env,
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
+      // SPIKE (spike/db-cache): placeholder id, never deployed. Local dev uses
+      // CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE.
+      HYPERDRIVE: bindings.hyperdrive({ id: "00000000000000000000000000000000" }),
+      SPIKE_TEXT: bindings.text("spike-text-value"),
+      BETTER_AUTH_SECRET: bindings.secret(),
     },
   }),
 });
