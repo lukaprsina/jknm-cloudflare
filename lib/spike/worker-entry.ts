@@ -1,0 +1,44 @@
+import handler from "vinext/server/fetch-handler";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import { runWithDb, type Db } from "./db";
+import * as schema from "./schema";
+import { env as cfEnv } from "cloudflare:workers";
+
+export * from "vinext/server/fetch-handler";
+
+type E = { HYPERDRIVE: { connectionString: string } };
+
+// No explicit pool.end(): RSC streams the body after fetch() resolves, so ending the pool
+// at return time would kill Suspense children that query later (tested via /spike/stream?end=1).
+function scoped<T>(e: E, ctx: ExecutionContext, fn: () => T, endEarly = false): T {
+  const pool = new Pool({ connectionString: e.HYPERDRIVE.connectionString, max: 5 });
+  if (endEarly) {
+    const r = runWithDb(drizzle(pool, { schema }) as unknown as Db, fn);
+    ctx.waitUntil(
+      Promise.resolve(r)
+        .then(() => pool.end())
+        .catch(() => {}),
+    );
+    return r;
+  }
+  return runWithDb(drizzle(pool, { schema }) as unknown as Db, fn);
+}
+
+export default {
+  fetch(request: Request, env: E, ctx: ExecutionContext) {
+    const endEarly = new URL(request.url).searchParams.get("end") === "1";
+    return scoped(env, ctx, () => handler.fetch(request, env as never, ctx), endEarly);
+  },
+  async scheduled(_c: ScheduledController, env: E, ctx: ExecutionContext) {
+    await scoped(env, ctx, async () => {
+      const { db } = await import("./db");
+      const { sql } = await import("drizzle-orm");
+      const r = await (db.execute(
+        sql`select count(*)::int as n from spike_hyperdrive_probe`,
+      ) as Promise<unknown>);
+      console.log("[spike scheduled] ok", JSON.stringify((r as { rows: unknown[] }).rows));
+    });
+  },
+};
+void cfEnv;

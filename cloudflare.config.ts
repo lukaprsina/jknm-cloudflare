@@ -17,7 +17,7 @@ export default defineConfig({
   worker: defineWorker({
     ...responseStore.applicationWorker,
     name: "jknm-cloudflare",
-    entrypoint: "vinext/server/fetch-handler",
+    entrypoint: "./lib/spike/worker-entry.ts",
     compatibilityDate: "2026-10-26",
     compatibilityFlags: ["nodejs_compat"],
     assets: {
