@@ -15,17 +15,24 @@ export default defineConfig({
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
     options: { typeAware: true, typeCheck: true },
   },
-  plugins: lazyPlugins(() => [
-    vinext({
-      cache: responseStoreAdapter(),
-      images: { optimizer: imagesOptimizer() },
-    }),
-    cloudflare({
-      auxiliaryWorkers: [{ config: responseStoreServiceBinding }],
-      viteEnvironment: {
-        name: "rsc",
-        childEnvironments: ["ssr"],
-      },
-    }),
-  ]),
+  test: { exclude: [".references/**", "node_modules/**", ".cloudflare/**", "dist/**"] },
+  // SPIKE: vinext + cloudflare plugins boot workerd and require the Hyperdrive local
+  // connection string; skip them under vitest so `vp test` works in a fresh clone.
+  plugins: lazyPlugins(() =>
+    process.env.VITEST
+      ? []
+      : [
+          vinext({
+            cache: responseStoreAdapter(),
+            images: { optimizer: imagesOptimizer() },
+          }),
+          cloudflare({
+            auxiliaryWorkers: [{ config: responseStoreServiceBinding }],
+            viteEnvironment: {
+              name: "rsc",
+              childEnvironments: ["ssr"],
+            },
+          }),
+        ],
+  ),
 });

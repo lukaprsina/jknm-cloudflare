@@ -6,6 +6,7 @@ const ids = [...html.matchAll(/\$ACTION_ID_([^"]+)/g)].map((m) => m[1]);
 console.log("form action ids", ids.length);
 // extract resultAction / throwingAction ids from the RSC payload embedded in the html
 const find = (name) =>
+  html.match(new RegExp(String.raw`id\\*":\\*"([^"\\]+#` + name + String.raw`)\\*"`))?.[1] ??
   html.match(
     new RegExp(String.raw`id\\*":\\*"([^"\\]+)\\*",\\*"bound\\*":null,\\*"name\\*":\\*"` + name),
   )?.[1];
