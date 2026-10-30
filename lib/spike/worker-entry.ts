@@ -30,14 +30,33 @@ export default {
     const endEarly = new URL(request.url).searchParams.get("end") === "1";
     return scoped(env, ctx, () => handler.fetch(request, env as never, ctx), endEarly);
   },
-  async scheduled(_c: ScheduledController, env: E, ctx: ExecutionContext) {
+  // /cdn-cgi/local/scheduled?cron=direct  -> import next/cache in the entry and call revalidateTag
+  // /cdn-cgi/local/scheduled?cron=handler  -> invalidate through handler.fetch (internal route)
+  async scheduled(c: ScheduledController, env: E, ctx: ExecutionContext) {
     await scoped(env, ctx, async () => {
       const { db } = await import("./db");
       const { sql } = await import("drizzle-orm");
       const r = await (db.execute(
         sql`select count(*)::int as n from spike_hyperdrive_probe`,
       ) as Promise<unknown>);
-      console.log("[spike scheduled] ok", JSON.stringify((r as { rows: unknown[] }).rows));
+      console.log(
+        "[spike scheduled] db ok",
+        JSON.stringify((r as { rows: unknown[] }).rows),
+        "cron=",
+        c.cron,
+      );
+      if (c.cron === "direct") {
+        const { revalidateTag } = await import("next/cache");
+        await revalidateTag("spike", { expire: 0 });
+        console.log("[spike scheduled] direct revalidateTag returned without error");
+      } else {
+        const res = await handler.fetch(
+          new Request("http://localhost/spike/cache/outside?fn=revalidateTag"),
+          env as never,
+          ctx,
+        );
+        console.log("[spike scheduled] via-handler revalidateTag", res.status, await res.text());
+      }
     });
   },
 };
