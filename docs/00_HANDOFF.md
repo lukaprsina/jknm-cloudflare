@@ -1,6 +1,6 @@
 # Handoff: jknm Next.js/Vercel → Vinext/Cloudflare
 
-Preliminary exploration, done 2026-10-28 on the laptop. Nothing in `src` has been ported yet. The old repo is checked out read-only at `.references/jknm` (pinned in `refs.lock` at `89d48c2`). The migration research is in `.references/jknm/docs/migration/` (`cloudflare-migration.md` is the main guide; also `plan.md` and `vercel-cpu-usage-investigation.md`). This file is a summary and some points differ from it; where they conflict, check the research.
+Written 2026-10-28, before porting started. The old repo is checked out read-only at `.references/jknm` (pinned in `refs.lock` at `89d48c2`). The migration research is in `.references/jknm/docs/migration/` (`cloudflare-migration.md` is the main guide; also `plan.md` and `vercel-cpu-usage-investigation.md`). This file is a summary and some points differ from it; where they conflict, check the research.
 
 Old-repo docs worth reading instead of re-deriving: `CONTEXT.md` (domain glossary), `docs/architecture.md` (stale in places, see below), `docs/adr/`, `docs/research/`. zbsearch decision and benchmarks: <https://github.com/lukaprsina/jknm/issues/45>.
 
@@ -15,7 +15,7 @@ Old-repo docs worth reading instead of re-deriving: `CONTEXT.md` (domain glossar
 - oRPC is dropped in favour of plain Server Actions (Vinext reportedly handles either, so this is a design choice, not a constraint).
 - `@t3-oss/env-core` (or similar) for env. On Workers, check that `process.env` is populated under `nodejs_compat` at our compatibility date, or read from the `cloudflare:workers` env.
 - Member sync stays: new users added to the Google directory must be synced in as authors. Replace `googleapis`/`google-auth-library` with `fetch` + `jose`.
-- shadcn components: add with the shadcn CLI and diff against the old ones one by one (some were modified for the site). The user's own components get cleaned and redesigned, so don't just copy them.
+- shadcn/ui on Base UI (`base-nova`; the old site is Radix, `default` style). Add components on demand with `shadcn add`, one commit per add so the pristine output stays diffable. `docs/shadcn-customizations.md` lists the six old components that were modified (`breadcrumb`, `carousel`, `command`, `navigation-menu`, `sheet`, `table`); re-apply those by hand if still wanted. Our own (non-ui) components get cleaned and redesigned, so don't just copy them.
 
 ## KEEP (port, improve while porting)
 
@@ -69,26 +69,9 @@ Old-repo docs worth reading instead of re-deriving: `CONTEXT.md` (domain glossar
   - File tooling: `glob`, `globby`, `node-dir`, `@types/node-dir`, `csv-parse`, `image-size`.
   - Misc: `immer`, `klona`, `superjson`, `use-dynamic-refs`, `react-date-picker`, `server-only`, `@react-email/render`, `@tanstack/react-query-devtools`, `@editorjs/link`, `@editorjs/raw`, `@vercel/speed-insights`, `b2-js`, `sharp`, `@t3-oss/env-nextjs` (→ `env-core`), `googleapis`, `google-auth-library`.
 
-## SLOC estimate (code lines; whole old `src` ≈ 20.7k, of which 2.2k is tests)
-
-Estimates, not measured deletions: Algolia/search ~800, legacy `lib` ~380, toast ~250, oRPC ~130, cache plumbing + `dev/cache` + revalidate ~270, dead date-picker ~165, pagination ~150–250, S3 ~50. Total ≈ **2.2–2.4k**. The user's target of ≥3k depends on the cleanup and redesign of their own components (`components/` non-ui is ~5.9k, `shell` ~1.4k, `settings` ~0.5k, `gallery` ~0.36k, `uredi` ~1.2k). `components/ui` (3.9k) is shadcn and is regenerated, not hand-ported. `scripts/` (~6.9k) is additional and outside `src`.
-
 ## Risks / things to verify first
 
 1. **Vinext + Server Actions + cache invalidation.** The old design used Next's `updateTag` inside real Server Actions. Smoke-test one action, one invalidation, and the Hyperdrive Postgres connection before porting any UI. Old ADRs 0005 and 0006 (`.references/jknm/docs/adr/`) explain the caching constraints.
 2. **Workers limits.** Bundle size (the `googleapis` removal helps) and CPU time for building the search index.
 3. **Server Action error redaction** in Vinext production builds, which decides whether the `Result` wrapper is needed.
 4. Old `docs/architecture.md` is stale (it still describes Vercel and better-auth 1.6.27); trust `package.json` and the code.
-
-## Known tool quirks
-
-- `fff` search tools exclude `.references/` by default; pass the path explicitly.
-
-## Suggested skills for the next session
-
-- `codebase-design`: when designing the action helper, the search module, and the media/Images module (deep modules, seam placement).
-- `domain-modeling`: the new repo needs its own `GLOSSARY.md` and `docs/adr/` (AGENTS.md says single-context); record the decisions above as ADRs instead of leaving them only here.
-- `tdd`: port the business-logic modules test-first against pglite.
-- `research`: for the open questions (Vinext cache semantics, Workers limits, search index build cost).
-- `grilling`: to stress-test the TanStack Query removal and the cache design before building.
-- `code-review`: after each port batch.

@@ -1,3 +1,5 @@
+Port of www.jknm.si (Slovenian caving club site) from Next.js on Vercel to Vinext on Cloudflare Workers. The old repo is the read-only reference in `.references/jknm`; see `docs/00_HANDOFF.md` for decisions and what to keep, replace or drop.
+
 <!--VITE PLUS START-->
 
 # Using Vite+, the Unified Toolchain for the Web
