@@ -30,7 +30,6 @@ release. Add a tool name to select part of the graph. For example, run
 
 <!--VITE PLUS END-->
 
-
 <!-- BEGIN:refs -->
 
 ## Reference repos
@@ -44,11 +43,10 @@ Source and docs for some dependencies are checked out read-only in `.references/
 ### Ungrouped
 
 ```text
-[jknm @ main 6d1d1f4] The repo currently powering www.jknm.si (Next.js on Vercel), we are migrating to this project, Vinext on Cloudflare.
+[jknm @ main 89d48c2] The repo currently powering www.jknm.si (Next.js on Vercel), we are migrating to this project, Vinext on Cloudflare.
 ```
 
 <!-- END:refs -->
-
 
 ## Agent skills
 

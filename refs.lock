@@ -5,5 +5,5 @@ version = 1
 id = "jknm"
 url = "https://github.com/lukaprsina/jknm"
 ref = "HEAD"
-sha = "6d1d1f4ad95973a1edece492e1d99f58397a83a5"
+sha = "89d48c2dff2992583065e4bc598eb5941c657e30"
 branch = "main"

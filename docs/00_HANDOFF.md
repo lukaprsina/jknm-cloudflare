@@ -1,12 +1,12 @@
 # Handoff: jknm Next.js/Vercel → Vinext/Cloudflare
 
-Preliminary exploration, done 2026-10-28 on the laptop. Nothing in `src` has been ported yet. The old repo is checked out read-only at `.references/jknm` (pinned in `refs.lock` at `6d1d1f4`). **The unpushed research and conclusions on the home PC are not in that checkout.** After they're pushed, run `refs update jknm`.
+Preliminary exploration, done 2026-10-28 on the laptop. Nothing in `src` has been ported yet. The old repo is checked out read-only at `.references/jknm` (pinned in `refs.lock` at `89d48c2`). The migration research is in `.references/jknm/docs/migration/` (`cloudflare-migration.md` is the main guide; also `plan.md` and `vercel-cpu-usage-investigation.md`). This file is a summary and some points differ from it; where they conflict, check the research.
 
 Old-repo docs worth reading instead of re-deriving: `CONTEXT.md` (domain glossary), `docs/architecture.md` (stale in places, see below), `docs/adr/`, `docs/research/`. zbsearch decision and benchmarks: <https://github.com/lukaprsina/jknm/issues/45>.
 
 ## Decisions already made
 
-- Vercel/Next.js → Cloudflare/Vinext (Workers Paid). Reason: hit Vercel's 4h Fluid CPU limit.
+- Vercel/Next.js → Cloudflare/Vinext (Workers Paid). Reason: hit Vercel's 4h Fluid CPU limit. Vercel Pro (€20) is bought for the duration of the refactor, so the site is no longer throttled.
 - B2 → R2. Images go through Cloudflare Images (the `IMAGES` binding is already in `cloudflare.config.ts`). The old image pipeline is broken and gets dropped.
 - Supabase + Drizzle stay, via Hyperdrive. No D1 (SQLite, transactions).
 - Algolia → zbsearch (Orama fork, has Slovenian stemming).
@@ -82,7 +82,6 @@ Estimates, not measured deletions: Algolia/search ~800, legacy `lib` ~380, toast
 
 ## Known tool quirks
 
-- The project's bash tool is Git Bash; the user's PowerShell one-liners need `powershell -Command` or a bash equivalent.
 - `fff` search tools exclude `.references/` by default; pass the path explicitly.
 
 ## Suggested skills for the next session
