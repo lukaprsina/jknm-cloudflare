@@ -15,7 +15,7 @@ export default defineConfig({
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
     options: { typeAware: true, typeCheck: true },
   },
-  test: { exclude: [".references/**", "node_modules/**", ".cloudflare/**", "dist/**"] },
+  test: { exclude: [".references/**", "**/node_modules/**", ".cloudflare/**", "dist/**"] },
   // SPIKE: vinext + cloudflare plugins boot workerd and require the Hyperdrive local
   // connection string; skip them under vitest so `vp test` works in a fresh clone.
   plugins: lazyPlugins(() =>

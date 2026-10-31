@@ -35,6 +35,9 @@ export default defineConfig({
       SPIKE_TEXT: bindings.text("spike-text-value"),
       BETTER_AUTH_SECRET: bindings.secret(),
       SPIKE_TOKEN: bindings.secret(),
+      // SPIKE (spike/auth): Admin SDK credentials, read from .env.local in dev only.
+      JKNM_SERVICE_ACCOUNT_CREDENTIALS: bindings.secret(),
+      JKNM_WORKSPACE_ID: bindings.secret(),
     },
   }),
 });
