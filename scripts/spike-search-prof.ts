@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { search } from "zbsearch";
-import { buildDb } from "/home/luka/code/js/jknm-cloudflare/lib/spike-search/schema";
+import { buildDb } from "../lib/spike-search/schema";
 const db = buildDb(JSON.parse(readFileSync("/tmp/spike-search/corpus-lean.json", "utf8")), {
   stripBody: true,
 });

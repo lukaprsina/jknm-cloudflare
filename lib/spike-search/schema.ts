@@ -8,12 +8,16 @@ import { decode } from "html-entities";
 export const SCHEMA = {
   title: "string",
   body: "string",
-  author: "string", // "Priimek, Ime" of first author: sort key + searchable
+  author: "string", // "Priimek, Ime" of first author: ASC sort key (authorless = AUTHOR_LAST) + searchable
+  author_desc: "string", // same name, "" when authorless: DESC sort key (05: authorless last both ways)
   author_ids: "string[]", // facet (multi-valued)
   year: "string", // facet / histogram
   published_at: "number", // sort + filter
   article_kind: "enum", // 'article' | 'content'
 } as const;
+
+/** Sort sentinel for authorless docs: U+FFFF is last under localeCompare("sl") in Node 26 and Chromium 156 (05). */
+export const AUTHOR_LAST = "\uffff";
 
 export interface CorpusRow {
   id: string;
@@ -38,7 +42,8 @@ export function projectRow(r: CorpusRow) {
   return {
     title: r.title,
     body: r.blocks.map(htmlToText).join("\n"),
-    author: first ? `${first.last}, ${first.first}` : "",
+    author: first ? `${first.last}, ${first.first}` : AUTHOR_LAST,
+    author_desc: first ? `${first.last}, ${first.first}` : "",
     author_ids: r.authors.map((a) => String(a.id)),
     year: String(d.getUTCFullYear()),
     published_at: r.published_at,

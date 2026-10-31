@@ -4,10 +4,10 @@ import { createWorkersResponseStoreServiceBindingConfig } from "@vinext/cloudfla
 // SPIKE (spike/search-local): SPIKE_SEARCH=1 swaps every resource name for a scratch one so a
 // deploy can never touch the real `jknm-cloudflare` Workers. Without it the config is unchanged.
 const SPIKE = process.env.SPIKE_SEARCH === "1";
-const NAME = SPIKE ? "jknm-spike-search-app" : "jknm-cloudflare";
-const RS_NAME = SPIKE ? "jknm-spike-search-response-store" : "jknm-cloudflare-response-store";
+const NAME = SPIKE ? "spike-tmp-search-app" : "jknm-cloudflare";
+const RS_NAME = SPIKE ? "spike-tmp-search-rs" : "jknm-cloudflare-response-store";
 const RS_BUCKET = SPIKE
-  ? "jknm-spike-search-response-store-bodies"
+  ? "spike-tmp-search-rs-bodies"
   : "jknm-cloudflare-response-store-cache-bodies";
 
 const responseStore = await createWorkersResponseStoreServiceBindingConfig({
@@ -42,7 +42,7 @@ export default defineConfig({
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
       // SPIKE (spike/search-local)
-      SEARCH_R2: bindings.r2({ name: "jknm-spike-search-artifacts" }),
+      SEARCH_R2: bindings.r2({ name: "spike-tmp-search-artifacts" }),
       SPIKE_TOKEN: bindings.secret(),
     },
   }),

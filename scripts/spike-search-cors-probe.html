@@ -1,0 +1,38 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>cors probe</title>
+<script>
+  const U = "https://spike-tmp-search.jknm.org/search/json-9aee9be88a288357.bin";
+  window.run = async function () {
+    const out = { origin: location.origin };
+    for (const pass of ["first", "second"]) {
+      try {
+        const t0 = performance.now();
+        const r = await fetch(U + (pass === "first" ? "" : ""));
+        const buf = await r.arrayBuffer();
+        const e = performance.getEntriesByName(U).at(-1);
+        let parsed = null;
+        try {
+          parsed = JSON.parse(new TextDecoder().decode(buf));
+        } catch (err) {
+          parsed = String(err);
+        }
+        out[pass] = {
+          status: r.status,
+          ce: r.headers.get("content-encoding"),
+          ct: r.headers.get("content-type"),
+          cc: r.headers.get("cache-control"),
+          bufBytes: buf.byteLength,
+          encodedBodySize: e.encodedBodySize,
+          decodedBodySize: e.decodedBodySize,
+          transferSize: e.transferSize,
+          ms: Math.round(performance.now() - t0),
+          jsonKeys: parsed && typeof parsed === "object" ? Object.keys(parsed).slice(0, 6) : parsed,
+        };
+      } catch (err) {
+        out[pass] = { error: String(err) };
+      }
+    }
+    return JSON.stringify(out);
+  };
+</script>
