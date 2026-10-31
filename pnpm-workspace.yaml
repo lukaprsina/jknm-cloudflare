@@ -10,3 +10,5 @@ peerDependencyRules:
     - vite
   allowedVersions:
     vite: "*"
+patchedDependencies:
+  "@editorjs/editorjs@2.31.6": patches/@editorjs%2Feditorjs@2.31.6.patch

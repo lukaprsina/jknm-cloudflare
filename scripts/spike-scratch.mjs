@@ -3,7 +3,21 @@ import pg from "pg";
 const c = new pg.Client({ connectionString: process.env.SPIKE_DATABASE_URL });
 await c.connect();
 const cmd = process.argv[2];
-if (cmd === "create")
+if (cmd === "plumb-create") {
+  await c.query(
+    `create table if not exists spike_plumb_log (id serial primary key, at timestamptz not null default now(), kind text not null, detail text not null default '')`,
+  );
+  await c.query(
+    `create table if not exists spike_hyperdrive_probe (id serial primary key, label text not null, counter integer not null default 0, created_at timestamptz not null default now())`,
+  );
+  await c.query(
+    `insert into spike_hyperdrive_probe(label,counter) select x,0 from (values ('cache'),('cronmode')) v(x) where not exists (select 1 from spike_hyperdrive_probe p where p.label=v.x)`,
+  );
+} else if (cmd === "plumb-drop") {
+  await c.query(`drop table if exists spike_plumb_log`);
+  await c.query(`drop table if exists spike_hyperdrive_probe`);
+} else if (cmd === "plumb-sql") await console.log((await c.query(process.argv[3])).rows);
+else if (cmd === "create")
   await c.query(
     `create table if not exists spike_hyperdrive_probe (id serial primary key, label text not null, counter integer not null default 0, created_at timestamptz not null default now())`,
   );
