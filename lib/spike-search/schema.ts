@@ -78,3 +78,22 @@ export function buildDb(rows: CorpusRow[], opts: BuildOpts = {}) {
   for (const r of rows) insert(db, projectRow(r) as any);
   return db;
 }
+
+export function scaleRows(rows: CorpusRow[], scale: number, mode: string): CorpusRow[] {
+  if (scale <= 1) return rows;
+  const out = [...rows];
+  for (let k = 1; k < scale; k++) {
+    for (const r of rows) {
+      out.push({
+        ...r,
+        id: `${r.id}#${k}`,
+        // "uniq": suffix every word so the vocabulary (radix tree) grows too, not just postings.
+        blocks:
+          mode === "uniq"
+            ? r.blocks.map((b) => b.replace(/(\p{L}{3,})/gu, `$1${k.toString(36)}`))
+            : r.blocks,
+      });
+    }
+  }
+  return out;
+}

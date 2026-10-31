@@ -30,9 +30,12 @@ export async function runBench(format: string) {
   const h0 = mem();
   let t = performance.now();
   const idq = new URLSearchParams(location.search).get("identity") ? "?identity=1" : "";
-  const r = await fetch(`/spike-search/artifact/${man.key.replace("search/", "")}${idq}`, {
-    cache: "no-store",
-  });
+  const r = await fetch(
+    `/spike-search/${new URLSearchParams(location.search).get("identity") ? "artifact" : "a"}/${(new URLSearchParams(location.search).get("key") ?? man.key).replace("search/", "")}${idq}`,
+    {
+      cache: "no-store",
+    },
+  );
   res.headers = {
     "content-encoding": r.headers.get("content-encoding"),
     "content-type": r.headers.get("content-type"),
@@ -43,7 +46,7 @@ export async function runBench(format: string) {
   res.bodyLen = format === "seqproto" ? (body as ArrayBuffer).byteLength : (body as string).length;
   const rt = performance
     .getEntriesByType("resource")
-    .filter((x) => x.name.includes("/artifact/"))
+    .filter((x) => /\/(artifact|a)\/(json|seqproto|chunked)-/.test(x.name))
     .at(-1) as PerformanceResourceTiming | undefined;
   res.resource = rt && {
     encoded: rt.encodedBodySize,

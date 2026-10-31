@@ -26,11 +26,12 @@ export default defineConfig({
   worker: defineWorker({
     ...responseStore.applicationWorker,
     name: NAME,
-    entrypoint: "vinext/server/fetch-handler",
+    entrypoint: SPIKE ? "./lib/spike-search/worker-entry.ts" : "vinext/server/fetch-handler",
     compatibilityDate: "2026-10-26",
     compatibilityFlags: ["nodejs_compat"],
     observability: { enabled: true },
-    limits: { cpuMs: Number(process.env.SPIKE_CPU_MS ?? 30000) },
+    // Free plan rejects any `limits`; set SPIKE_CPU_MS only on a Workers Paid account.
+    ...(process.env.SPIKE_CPU_MS ? { limits: { cpuMs: Number(process.env.SPIKE_CPU_MS) } } : {}),
     assets: {
       htmlHandling: "none",
       notFoundHandling: "none",

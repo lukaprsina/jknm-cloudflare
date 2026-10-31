@@ -1,7 +1,7 @@
 // SPIKE: the ONLY module (with the routes) importing "cloudflare:workers".
 import { env } from "cloudflare:workers";
 import { save, stringifyChunked } from "zbsearch";
-import { buildDb, type CorpusRow } from "./schema";
+import { buildDb, scaleRows, type CorpusRow } from "./schema";
 
 type E = { SEARCH_R2: R2Bucket; SPIKE_TOKEN?: string };
 export const e = () => env as unknown as E;
@@ -12,29 +12,19 @@ export function guard(req: Request): Response | null {
   return null;
 }
 
-function scaleRows(rows: CorpusRow[], scale: number, mode: string): CorpusRow[] {
-  if (scale <= 1) return rows;
-  const out = [...rows];
-  for (let k = 1; k < scale; k++) {
-    for (const r of rows) {
-      out.push({
-        ...r,
-        id: `${r.id}#${k}`,
-        // "uniq": suffix every word so the vocabulary (radix tree) grows too, not just postings.
-        blocks:
-          mode === "uniq"
-            ? r.blocks.map((b) => b.replace(/(\p{L}{3,})/gu, `$1${k.toString(36)}`))
-            : r.blocks,
-      });
-    }
-  }
-  return out;
-}
-
 const hex = (b: ArrayBuffer) =>
   [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
 
 async function brotli(bytes: Uint8Array, how: string, quality: number): Promise<Uint8Array> {
+  if (how === "none") return bytes;
+  if (how === "gzip" || how === "cs-brotli") {
+    const cs = new Blob([bytes as BlobPart])
+      .stream()
+      .pipeThrough(
+        new CompressionStream((how === "gzip" ? "gzip" : "brotli") as CompressionFormat),
+      );
+    return new Uint8Array(await new Response(cs).arrayBuffer());
+  }
   if (how === "cs") {
     const cs = new Blob([bytes as BlobPart])
       .stream()
@@ -62,9 +52,27 @@ export async function runBuild(url: URL) {
   const stripBody = p.get("strip") !== "0";
   const put = p.get("put") !== "0";
   const out: Record<string, unknown> = { phase, scale, format, how, q, stripBody };
+  out.memUsage =
+    typeof process?.memoryUsage === "function"
+      ? (() => {
+          try {
+            return process.memoryUsage().heapUsed;
+          } catch (err) {
+            return String(err);
+          }
+        })()
+      : "n/a";
   const t0 = Date.now();
 
-  const obj = await e().SEARCH_R2.get("corpus.json");
+  if (phase === "brotli") {
+    // compress-only probe: bytes of an R2 object in, sizes out
+    const raw = new Uint8Array(
+      await (await e().SEARCH_R2.get(p.get("corpus") ?? "raw.json"))!.arrayBuffer(),
+    );
+    const packed = await brotli(raw, how, q);
+    return { ...out, rawBytes: raw.length, compressedBytes: packed.length };
+  }
+  const obj = await e().SEARCH_R2.get(p.get("corpus") ?? "corpus.json");
   if (!obj) return { error: "no corpus" };
   let rows = (await obj.json()) as CorpusRow[];
   rows = scaleRows(rows, scale, p.get("mode") ?? "uniq");
@@ -87,16 +95,16 @@ export async function runBuild(url: URL) {
   if (phase === "persist") return out;
 
   const packed = await brotli(bytes, how, q);
-  out.brotliBytes = packed.length;
+  out.brotliBytes = packed.length; // = compressed bytes for the chosen `how`
   if (phase === "compress" || !put) return out;
 
   const hash = hex(await crypto.subtle.digest("SHA-256", bytes as BufferSource)).slice(0, 16);
-  const key = `search/${format}-${hash}`;
+  const key = `search/${format}-${hash}${p.get("suffix") ?? ""}`;
   await e().SEARCH_R2.put(key, packed, {
     httpMetadata: {
       contentType:
         format === "json" || format === "chunked" ? "application/json" : "application/octet-stream",
-      contentEncoding: "br",
+      ...(how === "none" ? {} : { contentEncoding: how === "gzip" ? "gzip" : "br" }),
       cacheControl: "public, max-age=31536000, immutable",
     },
   });
