@@ -2,7 +2,7 @@ import handler from "vinext/server/fetch-handler";
 import { runWithDb } from "@/server/db";
 import { createPgDb } from "@/server/db/pg";
 import { getServerEnv } from "@/server/env";
-import { createInternalGate, INTERNAL_PREFIX } from "./internal-gate";
+import { createInternalGate, REVALIDATE_PATH } from "./internal-gate";
 
 export * from "vinext/server/fetch-handler";
 
@@ -17,9 +17,9 @@ const scoped = <T>(fn: () => T) =>
  */
 export async function revalidateTags(tags: string[], env: Env, ctx: ExecutionContext) {
   const response = await handler.fetch(
-    new Request(`http://internal${INTERNAL_PREFIX}revalidate`, {
+    new Request(`http://internal${REVALIDATE_PATH}`, {
       method: "POST",
-      headers: { ...gate.headers, "content-type": "application/json" },
+      headers: { ...gate.headers(), "content-type": "application/json" },
       body: JSON.stringify({ tags }),
     }),
     env,

@@ -6,6 +6,8 @@
  * to the prefix are rejected.
  */
 export const INTERNAL_PREFIX = "/api/internal/";
+/** Must match `app/api/internal/revalidate/route.ts`. */
+export const REVALIDATE_PATH = `${INTERNAL_PREFIX}revalidate`;
 export const INTERNAL_HEADER = "x-internal-token";
 
 export function createInternalGate() {
@@ -14,7 +16,7 @@ export function createInternalGate() {
   const token = () => (minted ??= crypto.randomUUID());
   return {
     /** Headers to attach to an in-process request. */
-    get headers() {
+    headers() {
       return { [INTERNAL_HEADER]: token() };
     },
     /** True when the request may proceed to the app. */

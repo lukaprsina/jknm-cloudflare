@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vite-plus/test";
-import { createInternalGate } from "./internal-gate";
+import { createInternalGate, REVALIDATE_PATH } from "./internal-gate";
 
 describe("internal gate", () => {
   const gate = createInternalGate();
-  const url = "https://x.test/api/internal/revalidate";
+  const url = `https://x.test${REVALIDATE_PATH}`;
 
   test("allows ordinary paths", () => {
     expect(gate.allows(new Request("https://x.test/novica/a"))).toBe(true);
@@ -13,9 +13,9 @@ describe("internal gate", () => {
     expect(gate.allows(new Request(url, { headers: { "x-internal-token": "nope" } }))).toBe(false);
   });
   test("accepts the isolate's own token", () => {
-    expect(gate.allows(new Request(url, { headers: gate.headers }))).toBe(true);
+    expect(gate.allows(new Request(url, { headers: gate.headers() }))).toBe(true);
   });
   test("tokens differ per gate", () => {
-    expect(createInternalGate().headers).not.toEqual(gate.headers);
+    expect(createInternalGate().headers()).not.toEqual(gate.headers());
   });
 });
