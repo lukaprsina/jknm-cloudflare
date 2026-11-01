@@ -217,10 +217,9 @@ export const Media = pgTable("media", {
   srcsets: jsonb("srcsets").$type<MediaSrcsetsData>(),
   blur_placeholder: text("blur_placeholder"),
   // sha256 of the original file's bytes. Null means "not backfilled yet" —
-  // set live by ingest_media() (src/server/media/ingest.ts), which also uses
-  // it to reuse an existing row instead of inserting a dupe. Rows created
-  // before that check existed may still be null until backfilled by
-  // scripts/retired/media/analyze-media-duplicates.ts.
+  // set live by media ingest, which also uses it to reuse an existing row
+  // instead of inserting a dupe. Rows created before that check existed may
+  // still be null.
   hash: varchar("hash", { length: 64 }).unique(),
   created_at: timestamp("created_at", { withTimezone: true })
     .default(sql`CURRENT_TIMESTAMP`)
