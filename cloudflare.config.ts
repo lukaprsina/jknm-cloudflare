@@ -34,9 +34,8 @@ export default defineConfig({
       ...responseStore.applicationWorker.env,
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
-      // Placeholder id until `cf hyperdrive create` (direct host, caching disabled) is run.
-      // Local dev uses CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE.
-      HYPERDRIVE: bindings.hyperdrive({ id: "00000000000000000000000000000000" }),
+      // Direct Supabase host, caching disabled (checked with `cf hyperdrive get`).
+      HYPERDRIVE: bindings.hyperdrive({ id: "19395203187c415ba1df0ede2a0f3b0d" }),
       QUEUE: bindings.queue({ name: "jknm-search" }),
       BETTER_AUTH_SECRET: bindings.secret(),
     },
