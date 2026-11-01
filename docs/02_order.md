@@ -13,6 +13,15 @@ Hyperdrive (direct host, caching off), Server Actions (`Result` needed), cache t
 - Custom worker entry: `fetch` + `scheduled` + `queue`, guarded internal revalidate route.
 - Drizzle config, pnpm patches. Drop the `zbsearch` override.
 
+**Done (branch `port/foundation`):**
+
+- Env: `server/env.ts` is the only `cloudflare:workers` importer (zod, lazy). The entry uses the generated `Env` type. `DATABASE_URL` is drizzle-kit only and stays undeclared.
+- `NEXT_PUBLIC_*` in CI: there is no CI yet (the old repo had none; Vercel built it). Set the variables in the Workers Builds environment when deploys are wired up; noted in `.env.example`.
+- Pool per invocation: kept as is. `pg.Pool` opens no connection until the first query, so `scheduled`/`queue` stubs cost nothing, and the gate 404s return before `scoped`. Idle clients close after `pg`'s default 10 s. Deployed spike 03 (appendix) already ran this pattern (`pool` mode, direct host, caching off) at concurrency 20 with 40/40 OK. Never `end()` it. A fresh deployed load test belongs to the cutover checks.
+- Style cleanup: stale `schema.ts` comment, route path as one constant (`REVALIDATE_PATH`), gate `headers()` is a method. Left alone on purpose: repeated column code in `schema.ts` (helpers would add churn), table-name casing (matches the old DB), `revalidateTags` in the entry (no caller yet).
+- pnpm patches: deferred to step 6. pnpm fails on a patch for a package that is not installed, so copy `patches/@editorjs%2Feditorjs@2.31.6.patch` and add `patchedDependencies` together with `@editorjs/editorjs`. The `zbsearch` override was never carried over.
+- Early on purpose, ahead of their steps: `BETTER_AUTH_SECRET` (3), `jose` (3, 6), the `QUEUE` binding and daily cron (7, 8). `scheduled` and `queue` are stubs.
+
 ## 2. Pure domain core
 
 Copy `server/article/*`, `server/author/*` (no Google sync), `lib/cache-policy.ts` and tests. `vp test` green. Cache adapters use `updateTag` / hard expiry, never `"max"`.
@@ -47,5 +56,7 @@ Resend vs `cf email-sending` (undecided), sweep-stale-content cron, backups. `jk
 ## Still unresearched
 
 Media upload path, Resend vs CF email, backups, multi-colo cache behaviour, R2 Cache Rule alternative, Queue-run search build. All are decide-while-porting, none blocks steps 1-4.
+
+Each step gets a short "Done" note under its list when it lands; notes that span steps go at the bottom.
 
 shadcn components are added in steps 4 and 6, one commit per `shadcn add`.

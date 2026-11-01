@@ -1,4 +1,4 @@
-import { defineConfig, lazyPlugins } from "vite-plus";
+import { configDefaults, defineConfig, lazyPlugins } from "vite-plus";
 import vinext from "vinext";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import { responseStoreServiceBinding } from "./cloudflare.config";
@@ -15,17 +15,25 @@ export default defineConfig({
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
     options: { typeAware: true, typeCheck: true },
   },
-  plugins: lazyPlugins(() => [
-    vinext({
-      cache: responseStoreAdapter(),
-      images: { optimizer: imagesOptimizer() },
-    }),
-    cloudflare({
-      auxiliaryWorkers: [{ config: responseStoreServiceBinding }],
-      viteEnvironment: {
-        name: "rsc",
-        childEnvironments: ["ssr"],
-      },
-    }),
-  ]),
+  test: {
+    exclude: [...configDefaults.exclude, ".references/**", ".cloudflare/**"],
+  },
+  // vinext/Cloudflare plugins need workerd; unit tests run in plain Node.
+  plugins: lazyPlugins(() =>
+    process.env.VITEST
+      ? []
+      : [
+          vinext({
+            cache: responseStoreAdapter(),
+            images: { optimizer: imagesOptimizer() },
+          }),
+          cloudflare({
+            auxiliaryWorkers: [{ config: responseStoreServiceBinding }],
+            viteEnvironment: {
+              name: "rsc",
+              childEnvironments: ["ssr"],
+            },
+          }),
+        ],
+  ),
 });

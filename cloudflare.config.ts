@@ -1,4 +1,4 @@
-import { bindings, defineConfig, defineWorker } from "cf/config";
+import { bindings, defineConfig, defineWorker, triggers } from "cf/config";
 import { createWorkersResponseStoreServiceBindingConfig } from "@vinext/cloudflare/cache/config";
 
 const responseStore = await createWorkersResponseStoreServiceBindingConfig({
@@ -17,7 +17,7 @@ export default defineConfig({
   worker: defineWorker({
     ...responseStore.applicationWorker,
     name: "jknm-cloudflare",
-    entrypoint: "vinext/server/fetch-handler",
+    entrypoint: "./worker/entry.ts",
     compatibilityDate: "2026-10-26",
     compatibilityFlags: ["nodejs_compat"],
     assets: {
@@ -25,10 +25,19 @@ export default defineConfig({
       notFoundHandling: "none",
       runWorkerFirst: ["/*", "!/_next/static/*", "!/*/_next/static/*"],
     },
+    triggers: [
+      triggers.queue({ name: "jknm-search", maxBatchTimeout: 30 }),
+      // Daily safety net for the search build and stale-content sweep.
+      triggers.scheduled({ schedule: "0 3 * * *" }),
+    ],
     env: {
       ...responseStore.applicationWorker.env,
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
+      // Direct Supabase host, caching disabled (checked with `cf hyperdrive get`).
+      HYPERDRIVE: bindings.hyperdrive({ id: "19395203187c415ba1df0ede2a0f3b0d" }),
+      QUEUE: bindings.queue({ name: "jknm-search" }),
+      BETTER_AUTH_SECRET: bindings.secret(),
     },
   }),
 });
