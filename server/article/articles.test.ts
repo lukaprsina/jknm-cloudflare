@@ -577,3 +577,49 @@ describe("a failing emit", () => {
     expect(revision.supersedes_id).toBe(article.id);
   });
 });
+
+describe("publishing a revision, further cases", () => {
+  const publish_as = (articles: Articles, article_id: string, title: string) =>
+    articles.publish({ article_id, article: { title }, author_ids: [] });
+
+  test("a content page keeps its slug when its revision is retitled", async () => {
+    const { db, articles } = await setup();
+    const page = await publish_new(articles, "Zgodovina");
+    await db.update(Article).set({ article_kind: "content" }).where(eq(Article.id, page.id));
+    const revision = await articles.create_superseding_draft({ article_id: page.id }, "admin");
+
+    const { article, slug } = await publish_as(articles, revision.id, "Naša zgodovina");
+
+    expect(slug).toBe("zgodovina");
+    expect(slug_pairs(article)).toEqual([["zgodovina", true]]);
+  });
+
+  test("older slugs from earlier retitles keep resolving to the live article", async () => {
+    const { articles } = await setup();
+    const source = await publish_new(articles, "Jama");
+    await articles.save({
+      article_id: source.id,
+      article: { title: "Velika jama" },
+      author_ids: [],
+    });
+    const revision = await articles.create_superseding_draft({ article_id: source.id }, "admin");
+
+    const { article } = await publish_as(articles, revision.id, "Velika jama");
+
+    expect(slug_pairs(article)).toEqual([
+      ["jama", false],
+      ["velika-jama", true],
+    ]);
+  });
+
+  test("the legacy id follows a retitled revision too", async () => {
+    const { db, articles } = await setup();
+    const source = await publish_new(articles, "Jama");
+    await db.update(Article).set({ legacy_id: 77 }).where(eq(Article.id, source.id));
+    const revision = await articles.create_superseding_draft({ article_id: source.id }, "admin");
+
+    const { article } = await publish_as(articles, revision.id, "Velika jama");
+
+    expect(article.legacy_id).toBe(77);
+  });
+});
