@@ -8,6 +8,6 @@ import * as schema from "./schema";
  * Hyperdrive connection string. Never call `pool.end()`: production RSC
  * streams Suspense content after `fetch` returns.
  */
-export function create_pg_db(connectionString: string): Db {
-  return drizzle(new Pool({ connectionString, max: 5 }), { schema });
+export function create_pg_db(connection_string: string): Db {
+  return drizzle(new Pool({ connectionString: connection_string, max: 5 }), { schema });
 }
