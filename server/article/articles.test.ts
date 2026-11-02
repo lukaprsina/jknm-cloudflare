@@ -2,7 +2,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { eq } from "drizzle-orm";
 import type { DomainEvent } from "../../lib/cache-policy";
 import { create_test_db } from "../db/test-helpers";
-import { Author, Media, MediaToArticles, users } from "../db/schema";
+import { Article, Author, Media, MediaToArticles, users } from "../db/schema";
 import { create_articles } from "./articles";
 
 async function setup() {
@@ -191,5 +191,345 @@ describe("thumbnail", () => {
     await save(crop(a.url));
     const none = await save();
     expect(none?.thumbnail_media_id).toBeNull();
+  });
+});
+
+describe("publish", () => {
+  const publish = (
+    articles: Awaited<ReturnType<typeof setup>>["articles"],
+    article_id: string,
+    title: string,
+  ) => articles.publish({ article_id, article: { title }, author_ids: [] });
+
+  test("a first publish takes its public slug from the title", async () => {
+    const { articles, events } = await setup();
+    const draft = await articles.create({ title: "Jama" }, "admin");
+
+    const { article, slug } = await publish(articles, draft.id, "Čudovita jama");
+
+    expect(slug).toBe("cudovita-jama");
+    expect(article.status).toBe("published");
+    expect(article.title).toBe("Čudovita jama");
+    expect(article.article_slugs).toMatchObject([{ slug: "cudovita-jama", is_primary: true }]);
+    expect(article.published_at).toBeInstanceOf(Date);
+    expect(events.at(-1)).toBe("article.published");
+  });
+
+  test("publishing again keeps the slug it already has", async () => {
+    const { articles } = await setup();
+    const draft = await articles.create({ title: "Jama" }, "admin");
+    await publish(articles, draft.id, "Jama");
+
+    const { slug } = await publish(articles, draft.id, "Povsem drugačen naslov");
+
+    expect(slug).toBe("jama");
+  });
+});
+
+describe("slug collisions", () => {
+  const publish_titled = async (
+    articles: Awaited<ReturnType<typeof setup>>["articles"],
+    title: string,
+  ) => {
+    const draft = await articles.create({ title }, "admin");
+    return articles.publish({ article_id: draft.id, article: { title }, author_ids: [] });
+  };
+
+  test("a second live article with the same title gets a numbered slug", async () => {
+    const { articles } = await setup();
+
+    const first = await publish_titled(articles, "Jama");
+    const second = await publish_titled(articles, "Jama");
+    const third = await publish_titled(articles, "Jama");
+
+    expect([first.slug, second.slug, third.slug]).toEqual(["jama", "jama-2", "jama-3"]);
+  });
+
+  test("a deleted article's slug is reusable, since its URL is a dead end", async () => {
+    const { articles } = await setup();
+    const first = await publish_titled(articles, "Jama");
+    await articles.remove({ article_id: first.article.id });
+
+    const second = await publish_titled(articles, "Jama");
+
+    expect(second.slug).toBe("jama");
+  });
+});
+
+async function status_of(db: Awaited<ReturnType<typeof setup>>["db"], article_id: string) {
+  const row = await db.query.Article.findFirst({
+    where: eq(Article.id, article_id),
+    columns: { status: true },
+  });
+  return row?.status;
+}
+
+type Articles = Awaited<ReturnType<typeof setup>>["articles"];
+type Db = Awaited<ReturnType<typeof setup>>["db"];
+
+async function publish_new(articles: Articles, title: string) {
+  const draft = await articles.create({ title }, "admin");
+  return (await articles.publish({ article_id: draft.id, article: { title }, author_ids: [] }))
+    .article;
+}
+
+describe("archive and delete", () => {
+  test("a published article can be archived once", async () => {
+    const { articles, events } = await setup();
+    const published = await publish_new(articles, "Jama");
+
+    const archived = await articles.archive({ article_id: published.id });
+
+    expect(archived?.status).toBe("archived");
+    expect(archived?.archived_at).toBeInstanceOf(Date);
+    expect(events.at(-1)).toBe("article.archived");
+    await expect(articles.archive({ article_id: published.id })).rejects.toThrow(/archive/);
+  });
+
+  test("a draft can be archived too", async () => {
+    const { articles } = await setup();
+    const draft = await articles.create({ title: "Jama" }, "admin");
+
+    expect((await articles.archive({ article_id: draft.id }))?.status).toBe("archived");
+  });
+
+  test("an article can be deleted once, and deleting is terminal", async () => {
+    const { articles, events } = await setup();
+    const published = await publish_new(articles, "Jama");
+
+    const deleted = await articles.remove({ article_id: published.id });
+
+    expect(deleted.status).toBe("deleted");
+    expect(deleted.deleted_at).toBeInstanceOf(Date);
+    expect(events.at(-1)).toBe("article.deleted");
+    await expect(articles.remove({ article_id: published.id })).rejects.toThrow(/already deleted/);
+    await expect(articles.archive({ article_id: published.id })).rejects.toThrow(/archive/);
+  });
+});
+
+describe("superseding drafts", () => {
+  test("revising a published article copies it into a draft and leaves the source live", async () => {
+    const { db, articles, events } = await setup();
+    const [ana] = await add_authors(db, ["Ana"]);
+    const draft = await articles.create({ title: "Jama" }, "admin");
+    const content = { blocks: [{ type: "paragraph", data: { text: "Besedilo" } }] };
+    const picked = new Date("2020-01-01T00:00:00Z");
+    const { article: source } = await articles.publish({
+      article_id: draft.id,
+      article: { title: "Jama", content, published_at: picked },
+      author_ids: [ana!],
+    });
+
+    const revision = await articles.create_superseding_draft({ article_id: source.id }, "admin");
+
+    expect(revision).toMatchObject({
+      status: "draft",
+      supersedes_id: source.id,
+      title: "Jama",
+      content_json: content,
+      published_at: picked,
+      created_by: "admin",
+    });
+    expect(revision.articles_to_authors.map((rel) => rel.author.first_name)).toEqual(["Ana"]);
+    expect(await status_of(db, source.id)).toBe("published");
+    expect(events).toContain("article.superseding_draft_created");
+  });
+
+  test("a second revision of the same article reuses the open draft", async () => {
+    const { articles, events } = await setup();
+    const source = await publish_new(articles, "Jama");
+
+    const first = await articles.create_superseding_draft({ article_id: source.id }, "admin");
+    const again = await articles.create_superseding_draft({ article_id: source.id }, "admin");
+
+    expect(again.id).toBe(first.id);
+    expect(events.filter((e) => e === "article.superseding_draft_created")).toHaveLength(1);
+  });
+
+  test("unarchiving retires the archived source immediately", async () => {
+    const { db, articles, events } = await setup();
+    const published = await publish_new(articles, "Jama");
+    await articles.archive({ article_id: published.id });
+
+    const revision = await articles.create_superseding_draft({ article_id: published.id }, "admin");
+
+    expect(revision.supersedes_id).toBe(published.id);
+    expect(await status_of(db, published.id)).toBe("deleted");
+    expect(events.at(-1)).toBe("article.unarchived");
+  });
+
+  test("only a published or archived article can be revised", async () => {
+    const { articles } = await setup();
+    const draft = await articles.create({ title: "Jama" }, "admin");
+
+    await expect(
+      articles.create_superseding_draft({ article_id: draft.id }, "admin"),
+    ).rejects.toThrow(/superseding draft/);
+  });
+
+  test("archiving or deleting a revision acts on the source and takes the revision with it", async () => {
+    const { db, articles } = await setup();
+    const archive_source = await publish_new(articles, "Jama");
+    const archive_revision = await articles.create_superseding_draft(
+      { article_id: archive_source.id },
+      "admin",
+    );
+    await articles.archive({ article_id: archive_revision.id });
+    expect(await status_of(db, archive_source.id)).toBe("archived");
+    expect(await status_of(db, archive_revision.id)).toBe("deleted");
+
+    const delete_source = await publish_new(articles, "Druga jama");
+    const delete_revision = await articles.create_superseding_draft(
+      { article_id: delete_source.id },
+      "admin",
+    );
+    await articles.remove({ article_id: delete_revision.id });
+    expect(await status_of(db, delete_source.id)).toBe("deleted");
+    expect(await status_of(db, delete_revision.id)).toBe("deleted");
+  });
+});
+
+describe("discard_draft", () => {
+  test("cancels a revision and leaves a live source untouched", async () => {
+    const { db, articles, events } = await setup();
+    const source = await publish_new(articles, "Jama");
+    const revision = await articles.create_superseding_draft({ article_id: source.id }, "admin");
+
+    await articles.discard_draft({ article_id: revision.id });
+
+    expect(await status_of(db, revision.id)).toBe("deleted");
+    expect(await status_of(db, source.id)).toBe("published");
+    expect(events.at(-1)).toBe("article.draft_discarded");
+  });
+
+  test("discarding an unarchive puts the source back in the archive", async () => {
+    const { db, articles } = await setup();
+    const source = await publish_new(articles, "Jama");
+    await articles.archive({ article_id: source.id });
+    const revision = await articles.create_superseding_draft({ article_id: source.id }, "admin");
+
+    await articles.discard_draft({ article_id: revision.id });
+
+    expect(await status_of(db, source.id)).toBe("archived");
+    expect(await status_of(db, revision.id)).toBe("deleted");
+  });
+
+  test("a standalone draft cannot be discarded", async () => {
+    const { articles } = await setup();
+    const draft = await articles.create({ title: "Jama" }, "admin");
+
+    await expect(articles.discard_draft({ article_id: draft.id })).rejects.toThrow(/standalone/);
+  });
+});
+
+describe("publishing a revision", () => {
+  async function published_with_legacy_id(articles: Articles, db: Db, title: string) {
+    const source = await publish_new(articles, title);
+    await db.update(Article).set({ legacy_id: 1234 }).where(eq(Article.id, source.id));
+    return source;
+  }
+  const publish_revision = (articles: Articles, article_id: string, title: string) =>
+    articles.publish({ article_id, article: { title }, author_ids: [] });
+
+  test("an unchanged title keeps the source's slug, date and legacy id; the source is retired", async () => {
+    const { db, articles } = await setup();
+    const source = await published_with_legacy_id(articles, db, "Jama");
+    const revision = await articles.create_superseding_draft({ article_id: source.id }, "admin");
+
+    const { article, slug } = await publish_revision(articles, revision.id, "Jama");
+
+    expect(slug).toBe("jama");
+    expect(article.published_at).toEqual(source.published_at);
+    expect(article.legacy_id).toBe(1234);
+    expect(await status_of(db, source.id)).toBe("deleted");
+    expect(
+      (await db.query.Article.findFirst({ where: eq(Article.id, source.id) }))?.legacy_id,
+    ).toBeNull();
+  });
+
+  test("a new title mints a new primary slug and the old one keeps resolving to the live article", async () => {
+    const { db, articles } = await setup();
+    const source = await publish_new(articles, "Jama");
+    const revision = await articles.create_superseding_draft({ article_id: source.id }, "admin");
+
+    const { article, slug } = await publish_revision(articles, revision.id, "Velika jama");
+
+    expect(slug).toBe("velika-jama");
+    expect(article.article_slugs.map((s) => [s.slug, s.is_primary]).sort()).toEqual([
+      ["jama", false],
+      ["velika-jama", true],
+    ]);
+    expect(await status_of(db, source.id)).toBe("deleted");
+  });
+
+  test("an unarchived article keeps its slug, date and legacy id when republished", async () => {
+    const { db, articles } = await setup();
+    const source = await published_with_legacy_id(articles, db, "Jama");
+    await articles.archive({ article_id: source.id });
+    const revision = await articles.create_superseding_draft({ article_id: source.id }, "admin");
+
+    const { article, slug } = await publish_revision(articles, revision.id, "Jama");
+
+    expect(slug).toBe("jama");
+    expect(article.published_at).toEqual(source.published_at);
+    expect(article.legacy_id).toBe(1234);
+  });
+
+  test("an explicitly picked date wins over the source's", async () => {
+    const { articles } = await setup();
+    const source = await publish_new(articles, "Jama");
+    const revision = await articles.create_superseding_draft({ article_id: source.id }, "admin");
+    const picked = new Date("2019-05-05T00:00:00Z");
+
+    const { article } = await articles.publish({
+      article_id: revision.id,
+      article: { title: "Jama", published_at: picked },
+      author_ids: [],
+    });
+
+    expect(article.published_at).toEqual(picked);
+  });
+});
+
+describe("retitling a published article with a plain save", () => {
+  const slugs = (article: { article_slugs: { slug: string; is_primary: boolean }[] } | undefined) =>
+    article?.article_slugs.map((s) => [s.slug, s.is_primary]).sort();
+  const retitle = (articles: Articles, article_id: string, title: string) =>
+    articles.save({ article_id, article: { title }, author_ids: [] });
+
+  test("mints a new primary slug and keeps the old one resolvable; reverting promotes it back", async () => {
+    const { articles } = await setup();
+    const published = await publish_new(articles, "Jama");
+
+    const renamed = await retitle(articles, published.id, "Velika jama");
+    expect(slugs(renamed)).toEqual([
+      ["jama", false],
+      ["velika-jama", true],
+    ]);
+
+    const reverted = await retitle(articles, published.id, "Jama");
+    expect(slugs(reverted)).toEqual([
+      ["jama", true],
+      ["velika-jama", false],
+    ]);
+  });
+
+  test("a draft has no public URL yet, so retitling it mints nothing", async () => {
+    const { articles } = await setup();
+    const draft = await articles.create({ title: "Jama" }, "admin");
+
+    const saved = await retitle(articles, draft.id, "Velika jama");
+
+    expect(saved?.article_slugs).toEqual([]);
+  });
+
+  test("a content page keeps its slug whatever its heading says", async () => {
+    const { db, articles } = await setup();
+    const page = await publish_new(articles, "Zgodovina");
+    await db.update(Article).set({ article_kind: "content" }).where(eq(Article.id, page.id));
+
+    const saved = await retitle(articles, page.id, "Naša zgodovina");
+
+    expect(slugs(saved)).toEqual([["zgodovina", true]]);
   });
 });
