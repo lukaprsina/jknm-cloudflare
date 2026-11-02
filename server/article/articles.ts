@@ -2,10 +2,13 @@ import { and, eq } from "drizzle-orm";
 import type { Db, DbTransaction } from "../db";
 import { Article, ArticlesToAuthors, type ArticleContentType } from "../db/schema";
 import { resilient, type Emit } from "../events";
+import type { DomainEvent } from "../../lib/cache-policy";
 import {
-  assert_one,
   copied_columns,
   find_article_with_relations,
+  find_source,
+  found,
+  one,
   resolve_thumbnail,
   soft_delete_article,
   type ThumbnailCrop,
@@ -18,6 +21,7 @@ import {
   decide_published_at,
   is_supersede_publish,
   resolve_lifecycle_target,
+  should_remint_slug_on_save,
   should_restore_source_on_discard,
 } from "./lifecycle-rules";
 import { reconcile_media_to_articles } from "./reconcile-media";
@@ -47,6 +51,38 @@ async function replace_article_authors(
     .values(author_ids.map((author_id, index) => ({ article_id, author_id, order: index })));
 }
 
+/**
+ * The write `save` and `publish` share: the article's fields and thumbnail,
+ * its authors, and its media links. `status_and_date` is what differs.
+ */
+async function write_article(
+  tx: DbTransaction,
+  article_id: string,
+  { article, author_ids }: { article: ArticleInput; author_ids: number[] },
+  status_and_date: { status?: "published"; published_at: Date },
+) {
+  const thumbnail = await resolve_thumbnail(tx, article.thumbnail_crop);
+  const updated = one(
+    await tx
+      .update(Article)
+      .set({
+        title: article.title,
+        content_json: article.content ?? undefined,
+        ...status_and_date,
+        ...thumbnail,
+      })
+      .where(eq(Article.id, article_id))
+      .returning(),
+  );
+
+  await replace_article_authors(tx, article_id, author_ids);
+  // Reconcile against the persisted content, not the input: an omitted
+  // `content` leaves the stored one in place, and keying off the input would
+  // wipe every link on a content-less save.
+  await reconcile_media_to_articles(tx, article_id, updated.content_json);
+  return updated;
+}
+
 const LIFECYCLE_COLUMNS = { id: true, status: true, supersedes_id: true } as const;
 
 /**
@@ -55,40 +91,35 @@ const LIFECYCLE_COLUMNS = { id: true, status: true, supersedes_id: true } as con
  * `resolve_lifecycle_target`).
  */
 async function find_lifecycle_target(tx: DbTransaction, article_id: string) {
-  const existing = await tx.query.Article.findFirst({
-    where: eq(Article.id, article_id),
-    columns: LIFECYCLE_COLUMNS,
-  });
-  if (!existing) throw new Error("Article not found");
-
-  const source = existing.supersedes_id
-    ? await tx.query.Article.findFirst({
-        where: eq(Article.id, existing.supersedes_id),
-        columns: LIFECYCLE_COLUMNS,
-      })
-    : null;
-
-  return resolve_lifecycle_target(existing, source ?? null);
+  const existing = found(
+    await tx.query.Article.findFirst({
+      where: eq(Article.id, article_id),
+      columns: LIFECYCLE_COLUMNS,
+    }),
+  );
+  const source = await find_source(tx, existing.supersedes_id, LIFECYCLE_COLUMNS);
+  return resolve_lifecycle_target(existing, source);
 }
 
 export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
   const announce = resilient(emit);
   return {
     async create(input: { title: string }, actor_id: string) {
-      const created = await db
-        .insert(Article)
-        .values({
-          title: input.title,
-          status: "draft",
-          content_json: {
-            blocks: [{ type: "header", data: { text: input.title, level: 1 } }],
-          },
-          created_by: actor_id,
-        })
-        .returning();
-      assert_one(created);
+      const created = one(
+        await db
+          .insert(Article)
+          .values({
+            title: input.title,
+            status: "draft",
+            content_json: {
+              blocks: [{ type: "header", data: { text: input.title, level: 1 } }],
+            },
+            created_by: actor_id,
+          })
+          .returning(),
+      );
       await announce("article.created");
-      return created[0];
+      return created;
     },
 
     /**
@@ -98,37 +129,23 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
      */
     async save(input: { article_id: string; article: ArticleInput; author_ids: number[] }) {
       const saved = await db.transaction(async (tx) => {
-        const existing = await tx.query.Article.findFirst({
-          where: eq(Article.id, input.article_id),
-          columns: { title: true, status: true, article_kind: true, published_at: true },
+        const existing = found(
+          await tx.query.Article.findFirst({
+            where: eq(Article.id, input.article_id),
+            columns: { title: true, status: true, article_kind: true, published_at: true },
+          }),
+        );
+
+        await write_article(tx, input.article_id, input, {
+          published_at: input.article.published_at ?? existing.published_at ?? new Date(),
         });
-        if (!existing) throw new Error("Article not found");
 
-        const thumbnail = await resolve_thumbnail(tx, input.article.thumbnail_crop);
-        const updated = await tx
-          .update(Article)
-          .set({
-            title: input.article.title,
-            content_json: input.article.content ?? undefined,
-            published_at: input.article.published_at ?? existing.published_at ?? new Date(),
-            ...thumbnail,
-          })
-          .where(eq(Article.id, input.article_id))
-          .returning();
-        assert_one(updated);
-
-        await replace_article_authors(tx, input.article_id, input.author_ids);
-        // Reconcile against the persisted content, not the input: an omitted
-        // `content` leaves the stored one in place, and keying off the input
-        // would wipe every link on a content-less save.
-        await reconcile_media_to_articles(tx, input.article_id, updated[0].content_json);
-
-        // Draft saves never reach this (no public URL yet), nor do `content`
-        // pages (their route is the fixed page, not the slug).
         if (
-          existing.status === "published" &&
-          existing.article_kind !== "content" &&
-          existing.title !== input.article.title
+          should_remint_slug_on_save({
+            ...existing,
+            old_title: existing.title,
+            new_title: input.article.title,
+          })
         ) {
           await resolve_retitle_slug(tx, input.article_id, existing.title, input.article.title);
         }
@@ -147,44 +164,30 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
      */
     async publish(input: { article_id: string; article: ArticleInput; author_ids: number[] }) {
       const result = await db.transaction(async (tx) => {
-        const existing = await tx.query.Article.findFirst({
-          where: eq(Article.id, input.article_id),
-          columns: { published_at: true, supersedes_id: true },
-        });
-        if (!existing) throw new Error("Article not found");
-
+        const existing = found(
+          await tx.query.Article.findFirst({
+            where: eq(Article.id, input.article_id),
+            columns: { published_at: true, supersedes_id: true },
+          }),
+        );
         // A plain read to pick the path; the locking re-read inside
         // `resolve_supersede_publish_slug` is what guards the race.
-        const source = existing.supersedes_id
-          ? ((await tx.query.Article.findFirst({
-              where: eq(Article.id, existing.supersedes_id),
-              columns: { status: true, published_at: true },
-            })) ?? null)
-          : null;
+        const source = await find_source(tx, existing.supersedes_id, {
+          status: true,
+          published_at: true,
+        });
 
-        const thumbnail = await resolve_thumbnail(tx, input.article.thumbnail_crop);
-        const updated = await tx
-          .update(Article)
-          .set({
-            title: input.article.title,
-            content_json: input.article.content ?? undefined,
-            status: "published",
-            published_at: decide_published_at({
-              requested: input.article.published_at,
-              source,
-              existing,
-              now: new Date(),
-            }),
-            ...thumbnail,
-          })
-          .where(eq(Article.id, input.article_id))
-          .returning();
-        assert_one(updated);
+        await write_article(tx, input.article_id, input, {
+          status: "published",
+          published_at: decide_published_at({
+            requested: input.article.published_at,
+            source,
+            existing,
+            now: new Date(),
+          }),
+        });
 
-        await replace_article_authors(tx, input.article_id, input.author_ids);
-        await reconcile_media_to_articles(tx, input.article_id, updated[0].content_json);
-
-        const primary =
+        const slug_row =
           existing.supersedes_id && is_supersede_publish(source)
             ? await resolve_supersede_publish_slug(
                 tx,
@@ -198,9 +201,11 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
           await inherit_identity_from_source(tx, input.article_id, existing.supersedes_id);
         }
 
-        const article = await find_article_with_relations(tx, eq(Article.id, input.article_id));
-        if (!article) throw new Error("Published article not found");
-        return { article, slug: primary.slug };
+        const article = found(
+          await find_article_with_relations(tx, eq(Article.id, input.article_id)),
+          "Published article",
+        );
+        return { article, slug: slug_row.slug };
       });
       await announce("article.published");
       return result;
@@ -215,12 +220,10 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
         );
         assert_can_archive(target.status);
 
-        const updated = await tx
+        await tx
           .update(Article)
           .set({ status: "archived", archived_at: new Date() })
-          .where(eq(Article.id, target.id))
-          .returning();
-        assert_one(updated);
+          .where(eq(Article.id, target.id));
 
         if (cascade_delete_draft_id) await soft_delete_article(tx, cascade_delete_draft_id);
         return find_article_with_relations(tx, eq(Article.id, target.id));
@@ -257,19 +260,14 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
      */
     async discard_draft(input: { article_id: string }) {
       const discarded = await db.transaction(async (tx) => {
-        const existing = await tx.query.Article.findFirst({
-          where: eq(Article.id, input.article_id),
-          columns: LIFECYCLE_COLUMNS,
-        });
-        if (!existing) throw new Error("Article not found");
+        const existing = found(
+          await tx.query.Article.findFirst({
+            where: eq(Article.id, input.article_id),
+            columns: LIFECYCLE_COLUMNS,
+          }),
+        );
         assert_can_discard(existing);
-
-        const source = existing.supersedes_id
-          ? ((await tx.query.Article.findFirst({
-              where: eq(Article.id, existing.supersedes_id),
-              columns: { status: true },
-            })) ?? null)
-          : null;
+        const source = await find_source(tx, existing.supersedes_id, { status: true });
 
         if (existing.supersedes_id && should_restore_source_on_discard(source)) {
           await tx
@@ -291,30 +289,29 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
      * confusing. Asking again while a draft is open returns that draft.
      */
     async create_superseding_draft(input: { article_id: string }, actor_id: string) {
-      const { draft_id, source_status, reused } = await db.transaction(async (tx) => {
-        const source = await find_article_with_relations(tx, eq(Article.id, input.article_id));
-        if (!source) throw new Error("Article not found");
+      const { draft_id, event } = await db.transaction(async (tx) => {
+        const source = found(
+          await find_article_with_relations(tx, eq(Article.id, input.article_id)),
+        );
         assert_can_supersede(source.status);
 
         const open_draft = await tx.query.Article.findFirst({
           where: and(eq(Article.supersedes_id, source.id), eq(Article.status, "draft")),
           columns: { id: true },
         });
-        if (open_draft) {
-          return { draft_id: open_draft.id, source_status: source.status, reused: true };
-        }
+        if (open_draft) return { draft_id: open_draft.id, event: null };
 
-        const created = await tx
-          .insert(Article)
-          .values({
-            ...copied_columns(source),
-            status: "draft",
-            supersedes_id: source.id,
-            created_by: actor_id,
-          })
-          .returning();
-        assert_one(created);
-        const draft = created[0];
+        const draft = one(
+          await tx
+            .insert(Article)
+            .values({
+              ...copied_columns(source),
+              status: "draft",
+              supersedes_id: source.id,
+              created_by: actor_id,
+            })
+            .returning(),
+        );
 
         if (source.articles_to_authors.length > 0) {
           await tx.insert(ArticlesToAuthors).values(
@@ -328,17 +325,15 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
         await reconcile_media_to_articles(tx, draft.id, draft.content_json);
         if (source.status === "archived") await soft_delete_article(tx, source.id);
 
-        return { draft_id: draft.id, source_status: source.status, reused: false };
+        // One action, two events: an archived source was just retired (the
+        // archive listing changed), a published one stays live and untouched.
+        const event: DomainEvent =
+          source.status === "archived" ? "article.unarchived" : "article.superseding_draft_created";
+        return { draft_id: draft.id, event };
       });
 
-      if (!reused) {
-        await announce(
-          source_status === "archived" ? "article.unarchived" : "article.superseding_draft_created",
-        );
-      }
-      const draft = await find_article_with_relations(db, eq(Article.id, draft_id));
-      if (!draft) throw new Error("Draft not found");
-      return draft;
+      if (event) await announce(event);
+      return found(await find_article_with_relations(db, eq(Article.id, draft_id)), "Draft");
     },
   };
 }

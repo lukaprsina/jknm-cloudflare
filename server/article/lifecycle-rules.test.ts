@@ -8,6 +8,7 @@ import {
   decide_slug_transition,
   is_supersede_publish,
   resolve_lifecycle_target,
+  should_remint_slug_on_save,
   should_restore_source_on_discard,
 } from "./lifecycle-rules";
 
@@ -168,5 +169,32 @@ describe("decide_slug_transition", () => {
         decide_slug_transition({ old_title: "Jama", new_title, old_primary_slug: null }),
       ).toEqual({ action: "mint_new" });
     }
+  });
+});
+
+describe("should_remint_slug_on_save", () => {
+  const retitled = { old_title: "Jama", new_title: "Velika jama" };
+
+  test("only a retitled, published news article gets a new slug", () => {
+    expect(
+      should_remint_slug_on_save({ status: "published", article_kind: "article", ...retitled }),
+    ).toBe(true);
+    expect(
+      should_remint_slug_on_save({ status: "draft", article_kind: "article", ...retitled }),
+    ).toBe(false);
+    expect(
+      should_remint_slug_on_save({ status: "archived", article_kind: "article", ...retitled }),
+    ).toBe(false);
+    expect(
+      should_remint_slug_on_save({ status: "published", article_kind: "content", ...retitled }),
+    ).toBe(false);
+    expect(
+      should_remint_slug_on_save({
+        status: "published",
+        article_kind: "article",
+        old_title: "Jama",
+        new_title: "Jama",
+      }),
+    ).toBe(false);
   });
 });

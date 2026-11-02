@@ -129,3 +129,22 @@ export function decide_slug_transition({
   if (old_title === new_title) return { action: "reuse", slug_id: old_primary_slug.id };
   return { action: "mint_new_and_demote", demote_slug_id: old_primary_slug.id };
 }
+
+/**
+ * Whether a plain save mints a new primary slug. Draft saves never do (no
+ * public URL yet), nor do `content` pages (their route is the fixed page, not
+ * the slug, so reminting on a heading edit would silently break it).
+ */
+export function should_remint_slug_on_save({
+  status,
+  article_kind,
+  old_title,
+  new_title,
+}: {
+  status: ArticleStatus;
+  article_kind: "article" | "content";
+  old_title: string;
+  new_title: string;
+}): boolean {
+  return status === "published" && article_kind !== "content" && old_title !== new_title;
+}

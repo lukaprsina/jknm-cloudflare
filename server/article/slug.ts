@@ -2,7 +2,7 @@ import { and, eq, ne } from "drizzle-orm";
 import { title_to_slug } from "../../lib/title-to-slug";
 import type { DbTransaction } from "../db";
 import { Article, ArticleSlug } from "../db/schema";
-import { assert_one, soft_delete_article } from "./article-rows";
+import { one, soft_delete_article } from "./article-rows";
 import { assert_can_supersede, decide_slug_transition } from "./lifecycle-rules";
 
 const MAX_SLUG_SUFFIX = 99;
@@ -29,25 +29,22 @@ async function assign_primary_slug(tx: DbTransaction, article_id: string, base: 
     if (!existing) return insert_primary_slug(tx, article_id, candidate);
     if (existing.article_id !== article_id && existing.article.status !== "deleted") continue;
 
-    const updated = await tx
-      .update(ArticleSlug)
-      .set({ article_id, is_primary: true })
-      .where(eq(ArticleSlug.id, existing.id))
-      .returning();
-    assert_one(updated);
-    return updated[0];
+    return one(
+      await tx
+        .update(ArticleSlug)
+        .set({ article_id, is_primary: true })
+        .where(eq(ArticleSlug.id, existing.id))
+        .returning(),
+    );
   }
 
   return insert_primary_slug(tx, article_id, `${base}-${Date.now()}`);
 }
 
 async function insert_primary_slug(tx: DbTransaction, article_id: string, slug: string) {
-  const inserted = await tx
-    .insert(ArticleSlug)
-    .values({ slug, article_id, is_primary: true })
-    .returning();
-  assert_one(inserted);
-  return inserted[0];
+  return one(
+    await tx.insert(ArticleSlug).values({ slug, article_id, is_primary: true }).returning(),
+  );
 }
 
 export async function resolve_first_publish_slug(
@@ -105,13 +102,13 @@ export async function resolve_supersede_publish_slug(
 
   let primary: typeof ArticleSlug.$inferSelect;
   if (decision.action === "reuse") {
-    const updated = await tx
-      .update(ArticleSlug)
-      .set({ article_id })
-      .where(eq(ArticleSlug.id, decision.slug_id))
-      .returning();
-    assert_one(updated);
-    primary = updated[0];
+    primary = one(
+      await tx
+        .update(ArticleSlug)
+        .set({ article_id })
+        .where(eq(ArticleSlug.id, decision.slug_id))
+        .returning(),
+    );
   } else {
     if (decision.action === "mint_new_and_demote") {
       await tx

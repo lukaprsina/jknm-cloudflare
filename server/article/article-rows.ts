@@ -3,8 +3,21 @@ import { PUBLIC_AUTHOR_COLUMNS } from "../author/public-shape";
 import type { Db, DbTransaction } from "../db";
 import { Article, ArticlesToAuthors, Media } from "../db/schema";
 
-export function assert_one<T>(value: T[]): asserts value is [T] {
-  if (value.length !== 1) throw new Error(`Expected exactly one item, got ${value.length}`);
+type ArticleRow = typeof Article.$inferSelect;
+
+/** The single row a `.returning()` must yield. */
+export function one<T>(rows: T[]): T {
+  const [row] = rows;
+  if (rows.length !== 1 || row === undefined) {
+    throw new Error(`Expected exactly one item, got ${rows.length}`);
+  }
+  return row;
+}
+
+/** Unwraps a lookup that must succeed. */
+export function found<T>(value: T | undefined | null, what = "Article"): T {
+  if (value == null) throw new Error(`${what} not found`);
+  return value;
 }
 
 /**
@@ -25,14 +38,26 @@ export function find_article_with_relations(executor: Db | DbTransaction, where:
   return executor.query.Article.findFirst({ where, with: ARTICLE_RELATIONS });
 }
 
+/** The article a revision supersedes, or `null` for a standalone article. */
+export async function find_source<C extends { [K in keyof ArticleRow]?: true }>(
+  tx: DbTransaction,
+  supersedes_id: string | null,
+  columns: C,
+) {
+  if (!supersedes_id) return null;
+  return (
+    (await tx.query.Article.findFirst({ where: eq(Article.id, supersedes_id), columns })) ?? null
+  );
+}
+
 export async function soft_delete_article(tx: DbTransaction, article_id: string) {
-  const updated = await tx
-    .update(Article)
-    .set({ status: "deleted", deleted_at: new Date() })
-    .where(eq(Article.id, article_id))
-    .returning();
-  assert_one(updated);
-  return updated[0];
+  return one(
+    await tx
+      .update(Article)
+      .set({ status: "deleted", deleted_at: new Date() })
+      .where(eq(Article.id, article_id))
+      .returning(),
+  );
 }
 
 /** A crop of an image, in percent of the image, as the editor reports it. */
@@ -77,8 +102,6 @@ export async function resolve_thumbnail(tx: DbTransaction, crop: ThumbnailCrop |
     uploaded_custom_thumbnail: crop.uploaded_custom_thumbnail ?? null,
   };
 }
-
-type ArticleRow = typeof Article.$inferSelect;
 
 /**
  * The `articles` columns a revision starts with, copied from its source. Every
