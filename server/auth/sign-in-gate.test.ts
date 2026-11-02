@@ -19,6 +19,13 @@ describe("is_allowed_sign_in", () => {
     expect(is_allowed_sign_in({ ...valid, email_verified })).toBe(false);
   });
 
+  test.each(["true", "false", 1])(
+    "rejects a non-boolean email_verified claim (%j)",
+    (email_verified) => {
+      expect(is_allowed_sign_in({ ...valid, email_verified })).toBe(false);
+    },
+  );
+
   test.each([null, undefined, ""])("rejects a %s email", (email) => {
     expect(is_allowed_sign_in({ ...valid, email })).toBe(false);
   });

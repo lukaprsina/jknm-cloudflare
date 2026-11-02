@@ -19,8 +19,6 @@ export interface CreateAuthOptions {
   fallback_origin: string;
   /** Explicit: Workers have no `NODE_ENV`, so better-auth would never set `Secure` by itself. */
   secure_cookies: boolean;
-  /** `waitUntil` from `cloudflare:workers`; without it better-auth awaits background work inline. */
-  wait_until?: (promise: Promise<unknown>) => void;
 }
 
 /**
@@ -40,7 +38,6 @@ export function create_auth(options: CreateAuthOptions) {
     account: { accountLinking: { enabled: true, trustedProviders: ["google"] } },
     advanced: {
       useSecureCookies: options.secure_cookies,
-      backgroundTasks: options.wait_until ? { handler: options.wait_until } : undefined,
     },
     socialProviders: {
       google: {

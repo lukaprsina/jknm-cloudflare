@@ -1,4 +1,4 @@
-import { Result, TaggedError } from "better-result";
+import { matchError, Result, TaggedError } from "better-result";
 import { z } from "zod";
 import type { Session } from "./auth/session-shape";
 
@@ -25,6 +25,8 @@ export type ActionResult<T> =
         fields?: Record<string, string[]>;
       };
     };
+
+type ActionError = Extract<ActionResult<never>, { ok: false }>;
 
 const failed = (cause: unknown) => new Failed({ message: "Nekaj je šlo narobe.", cause });
 
@@ -72,19 +74,22 @@ export function create_action(read_session: () => Promise<Session | null>) {
 
       return result.match({
         ok: (data): ActionResult<T> => ({ ok: true, data }),
-        err: (error): ActionResult<T> => {
-          if (error._tag === "Unauthorized") {
-            return { ok: false, error: { code: "unauthorized", message: error.message } };
-          }
-          if (error._tag === "InvalidInput") {
-            return {
+        // One handler per tagged error; a new tag without a handler fails typecheck.
+        err: (error): ActionResult<T> =>
+          matchError(error, {
+            Unauthorized: (e): ActionError => ({
               ok: false,
-              error: { code: "invalid", message: error.message, fields: error.fields },
-            };
-          }
-          console.error(error.cause);
-          return { ok: false, error: { code: "failed", message: error.message } };
-        },
+              error: { code: "unauthorized", message: e.message },
+            }),
+            InvalidInput: (e): ActionError => ({
+              ok: false,
+              error: { code: "invalid", message: e.message, fields: e.fields },
+            }),
+            Failed: (e): ActionError => {
+              console.error(e.cause);
+              return { ok: false, error: { code: "failed", message: e.message } };
+            },
+          }),
       });
     };
 }

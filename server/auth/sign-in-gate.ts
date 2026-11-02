@@ -15,11 +15,12 @@ export const ALLOWED_EMAIL_DOMAIN = `@${WORKSPACE_EMAIL_DOMAIN}`;
 export interface SignInCandidate {
   email: string | null | undefined;
   /** The provider's own claim that it owns the address — not our column. */
-  email_verified: boolean | null | undefined;
+  email_verified: unknown;
 }
 
 export function is_allowed_sign_in({ email, email_verified }: SignInCandidate): boolean {
-  if (!email_verified) return false;
+  // Strict: the claim comes from decoded JSON, so a string like "false" must not count as verified.
+  if (email_verified !== true) return false;
   if (!email) return false;
   return email.toLowerCase().endsWith(ALLOWED_EMAIL_DOMAIN);
 }
