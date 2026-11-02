@@ -264,6 +264,14 @@ async function status_of(db: Awaited<ReturnType<typeof setup>>["db"], article_id
   return row?.status;
 }
 
+function slug_pairs(
+  article: { article_slugs: { slug: string; is_primary: boolean }[] } | undefined,
+) {
+  return (article?.article_slugs ?? [])
+    .map((s) => [s.slug, s.is_primary] as const)
+    .sort(([a], [b]) => a.localeCompare(b));
+}
+
 type Articles = Awaited<ReturnType<typeof setup>>["articles"];
 type Db = Awaited<ReturnType<typeof setup>>["db"];
 
@@ -455,7 +463,7 @@ describe("publishing a revision", () => {
     const { article, slug } = await publish_revision(articles, revision.id, "Velika jama");
 
     expect(slug).toBe("velika-jama");
-    expect(article.article_slugs.map((s) => [s.slug, s.is_primary]).sort()).toEqual([
+    expect(slug_pairs(article)).toEqual([
       ["jama", false],
       ["velika-jama", true],
     ]);
@@ -492,8 +500,6 @@ describe("publishing a revision", () => {
 });
 
 describe("retitling a published article with a plain save", () => {
-  const slugs = (article: { article_slugs: { slug: string; is_primary: boolean }[] } | undefined) =>
-    article?.article_slugs.map((s) => [s.slug, s.is_primary]).sort();
   const retitle = (articles: Articles, article_id: string, title: string) =>
     articles.save({ article_id, article: { title }, author_ids: [] });
 
@@ -502,13 +508,13 @@ describe("retitling a published article with a plain save", () => {
     const published = await publish_new(articles, "Jama");
 
     const renamed = await retitle(articles, published.id, "Velika jama");
-    expect(slugs(renamed)).toEqual([
+    expect(slug_pairs(renamed)).toEqual([
       ["jama", false],
       ["velika-jama", true],
     ]);
 
     const reverted = await retitle(articles, published.id, "Jama");
-    expect(slugs(reverted)).toEqual([
+    expect(slug_pairs(reverted)).toEqual([
       ["jama", true],
       ["velika-jama", false],
     ]);
@@ -530,6 +536,6 @@ describe("retitling a published article with a plain save", () => {
 
     const saved = await retitle(articles, page.id, "Naša zgodovina");
 
-    expect(slugs(saved)).toEqual([["zgodovina", true]]);
+    expect(slug_pairs(saved)).toEqual([["zgodovina", true]]);
   });
 });
