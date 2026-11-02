@@ -18,13 +18,21 @@ Hyperdrive (direct host, caching off), Server Actions (`Result` needed), cache t
 - Env: `server/env.ts` is the only `cloudflare:workers` importer (zod, lazy). The entry uses the generated `Env` type. `DATABASE_URL` is drizzle-kit only and stays undeclared.
 - `NEXT_PUBLIC_*` in CI: there is no CI yet (the old repo had none; Vercel built it). Set the variables in the Workers Builds environment when deploys are wired up; noted in `.env.example`.
 - Pool per invocation: kept as is. `pg.Pool` opens no connection until the first query, so `scheduled`/`queue` stubs cost nothing, and the gate 404s return before `scoped`. Idle clients close after `pg`'s default 10 s. Deployed spike 03 (appendix) already ran this pattern (`pool` mode, direct host, caching off) at concurrency 20 with 40/40 OK. Never `end()` it. A fresh deployed load test belongs to the cutover checks.
-- Style cleanup: stale `schema.ts` comment, route path as one constant (`REVALIDATE_PATH`), gate `headers()` is a method. Left alone on purpose: repeated column code in `schema.ts` (helpers would add churn), table-name casing (matches the old DB), `revalidateTags` in the entry (no caller yet).
+- Style cleanup: stale `schema.ts` comment, route path as one constant (`REVALIDATE_PATH`), gate `headers()` is a method. Left alone on purpose: repeated column code in `schema.ts` (helpers would add churn), table-name casing (matches the old DB), `revalidate_tags` in the entry (no caller yet).
 - pnpm patches: deferred to step 6. pnpm fails on a patch for a package that is not installed, so copy `patches/@editorjs%2Feditorjs@2.31.6.patch` and add `patchedDependencies` together with `@editorjs/editorjs`. The `zbsearch` override was never carried over.
 - Early on purpose, ahead of their steps: `BETTER_AUTH_SECRET` (3), `jose` (3, 6), the `QUEUE` binding and daily cron (7, 8). `scheduled` and `queue` are stubs.
 
 ## 2. Pure domain core
 
 Copy `server/article/*`, `server/author/*` (no Google sync), `lib/cache-policy.ts` and tests. `vp test` green. Cache adapters use `updateTag` / hard expiry, never `"max"`.
+
+**Done (branch `port/domain-core`):** rewritten, not copied; the code and tests are the spec. Decisions the code does not show:
+
+- Seams are `create_articles({ db, emit })` and `create_authors({ db, emit })`. Search (step 7) hangs off `emit`, so lifecycle code never learns about it.
+- Not ported: Algolia, `get-article` (step 4), `sync_members` and its diff (step 6), the zod validators (step 3, action layer), slug-request resolution and visibility (step 4).
+- TanStack Query is dropped; `cache-policy` has no `query_keys`.
+- `title_to_slug` is pinned to production by `lib/title-to-slug.golden.json` (published titles and their stored slugs, captured 2026-11-02). Known gaps against the old function, on input real titles do not contain: numeric and named HTML entities, and `<script>`-style or malformed tags. Fix when step 4 picks the HTML sanitizer, and let slug, meta title and TOC share one `strip_html_to_text`.
+- Not tested here: `FOR UPDATE` contention on supersede-publish (pglite has one connection) and the real `updateTag` adapter. Both belong to a deployed check.
 
 ## 3. Auth
 

@@ -1,16 +1,16 @@
 import { describe, expect, test } from "vite-plus/test";
-import { db, runWithDb } from "./index";
+import { db, run_with_db } from "./index";
 import { Author } from "./schema";
-import { createTestDb } from "./test-helpers";
+import { create_test_db } from "./test-helpers";
 
 describe("ambient db", () => {
-  test("throws outside runWithDb", () => {
-    expect(() => db.select()).toThrow(/outside runWithDb/);
+  test("throws outside run_with_db", () => {
+    expect(() => db.select()).toThrow(/outside run_with_db/);
   });
 
   test("queries and rolls back through the proxy", async () => {
-    const testDb = await createTestDb();
-    await runWithDb(testDb, async () => {
+    const test_db = await create_test_db();
+    await run_with_db(test_db, async () => {
       await expect(
         db.transaction(async (tx) => {
           await tx.insert(Author).values({ author_type: "guest", first_name: "A", last_name: "B" });

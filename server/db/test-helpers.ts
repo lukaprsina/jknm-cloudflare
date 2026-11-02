@@ -5,7 +5,7 @@ import type { Db } from "./index";
 import * as schema from "./schema";
 
 /** In-memory Postgres (pglite) with the schema pushed, for tests that need real query behaviour. */
-export async function createTestDb(): Promise<Db> {
+export async function create_test_db(): Promise<Db> {
   const database = drizzle(new PGlite(), { schema });
   const { apply } = await pushSchema(
     schema,
