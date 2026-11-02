@@ -24,7 +24,7 @@ describe("invalidations_for", () => {
 
   test("article.unarchived refreshes archive and preveri but not the homepage feed", () => {
     const { tags } = invalidations_for("article.unarchived");
-    expect([...tags].sort()).toEqual(["all-published", "archive", "article", "drafts"]);
+    expect([...tags].sort()).toEqual(["all-published", "archive", "drafts"]);
   });
 
   test.each(["author.inserted", "author.renamed", "author.deleted", "author.synced"] as const)(

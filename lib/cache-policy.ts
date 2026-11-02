@@ -71,13 +71,10 @@ const INVALIDATIONS: Record<DomainEvent, Invalidations> = {
   // The source stays live and untouched until the draft is published.
   "article.superseding_draft_created": DRAFTS_ONLY,
   // The archived source is retired as the draft is spawned: the archive listing
-  // and `/preveri` (everything ever public, archived included) change, and so
-  // does `/novica/<slug>`, which stops serving the retired row to admins. The
-  // homepage feed does not: an archived article was already hidden from it.
-  "article.unarchived": {
-    tags: ["drafts", "archive", "all-published", "article"],
-    paths: PATHS,
-  },
+  // and `/preveri` (everything ever public, archived included) change. No public
+  // page does: an archived article was already hidden and a hidden slug is never
+  // cached, so the `article` tag is not needed. Nor is the homepage feed.
+  "article.unarchived": { tags: ["drafts", "archive", "all-published"], paths: PATHS },
   "article.published": PUBLISHED_SET_CHANGED,
   "article.archived": PUBLISHED_SET_CHANGED,
   "article.deleted": PUBLISHED_SET_CHANGED,
