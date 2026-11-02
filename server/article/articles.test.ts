@@ -539,3 +539,41 @@ describe("retitling a published article with a plain save", () => {
     expect(slug_pairs(saved)).toEqual([["zgodovina", true]]);
   });
 });
+
+describe("a failing emit", () => {
+  // The change is already committed when `emit` runs, so a cache or search
+  // failure must not make the caller lose the result (a draft id, a slug).
+  async function with_failing_emit() {
+    const { db } = await setup();
+    await db.insert(users).values({ id: "other", name: "Other", email: "other@jknm.si" });
+    return create_articles({
+      db,
+      emit: () => {
+        throw new Error("cache is down");
+      },
+    });
+  }
+
+  test("does not lose the created draft", async () => {
+    const articles = await with_failing_emit();
+
+    const draft = await articles.create({ title: "Jama" }, "other");
+
+    expect(draft.title).toBe("Jama");
+  });
+
+  test("does not lose a published result or a spawned revision", async () => {
+    const articles = await with_failing_emit();
+    const draft = await articles.create({ title: "Jama" }, "other");
+
+    const { slug, article } = await articles.publish({
+      article_id: draft.id,
+      article: { title: "Jama" },
+      author_ids: [],
+    });
+    const revision = await articles.create_superseding_draft({ article_id: article.id }, "other");
+
+    expect(slug).toBe("jama");
+    expect(revision.supersedes_id).toBe(article.id);
+  });
+});

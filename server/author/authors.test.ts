@@ -69,3 +69,27 @@ describe("guest authors", () => {
     expect(events.at(-1)).toBe("author.deleted");
   });
 });
+
+describe("emit", () => {
+  test("a failing emit does not lose the added guest", async () => {
+    const { db } = await setup();
+    const authors = create_authors({
+      db,
+      emit: () => {
+        throw new Error("cache is down");
+      },
+    });
+
+    const guest = await authors.add_guest({ first_name: "Ana", last_name: "Novak" });
+
+    expect(guest.first_name).toBe("Ana");
+  });
+
+  test("deleting nothing announces nothing", async () => {
+    const { authors, events } = await setup();
+
+    expect(await authors.delete_guests({ ids: [999] })).toEqual([]);
+
+    expect(events).toEqual([]);
+  });
+});

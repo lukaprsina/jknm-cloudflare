@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Db, DbTransaction } from "../db";
 import { Article, ArticlesToAuthors, type ArticleContentType } from "../db/schema";
-import type { Emit } from "../events";
+import { resilient, type Emit } from "../events";
 import {
   assert_one,
   find_article_with_relations,
@@ -71,6 +71,7 @@ async function find_lifecycle_target(tx: DbTransaction, article_id: string) {
 }
 
 export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
+  const announce = resilient(emit);
   return {
     async create(input: { title: string }, actor_id: string) {
       const created = await db
@@ -85,7 +86,7 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
         })
         .returning();
       assert_one(created);
-      await emit("article.created");
+      await announce("article.created");
       return created[0];
     },
 
@@ -132,7 +133,7 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
         }
         return find_article_with_relations(tx, eq(Article.id, input.article_id));
       });
-      await emit("article.saved");
+      await announce("article.saved");
       return saved;
     },
 
@@ -200,7 +201,7 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
         if (!article) throw new Error("Published article not found");
         return { article, slug: primary.slug };
       });
-      await emit("article.published");
+      await announce("article.published");
       return result;
     },
 
@@ -223,7 +224,7 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
         if (cascade_delete_draft_id) await soft_delete_article(tx, cascade_delete_draft_id);
         return find_article_with_relations(tx, eq(Article.id, target.id));
       });
-      await emit("article.archived");
+      await announce("article.archived");
       return archived;
     },
 
@@ -244,7 +245,7 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
         if (cascade_delete_draft_id) await soft_delete_article(tx, cascade_delete_draft_id);
         return deleted;
       });
-      await emit("article.deleted");
+      await announce("article.deleted");
       return deleted;
     },
 
@@ -277,7 +278,7 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
         }
         return soft_delete_article(tx, existing.id);
       });
-      await emit("article.draft_discarded");
+      await announce("article.draft_discarded");
       return discarded;
     },
 
@@ -340,7 +341,7 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
       });
 
       if (!reused) {
-        await emit(
+        await announce(
           source_status === "archived" ? "article.unarchived" : "article.superseding_draft_created",
         );
       }
