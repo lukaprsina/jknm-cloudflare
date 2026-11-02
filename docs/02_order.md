@@ -26,14 +26,13 @@ Hyperdrive (direct host, caching off), Server Actions (`Result` needed), cache t
 
 Copy `server/article/*`, `server/author/*` (no Google sync), `lib/cache-policy.ts` and tests. `vp test` green. Cache adapters use `updateTag` / hard expiry, never `"max"`.
 
-**Done (branch `port/domain-core`):** rewritten rather than copied.
+**Done (branch `port/domain-core`):** rewritten, not copied; the code and tests are the spec. Decisions the code does not show:
 
-- `create_articles({ db, emit })` and `create_authors({ db, emit })` are the seams. `db` is the step 1 `Db` (ALS proxy in production, pglite in tests). `emit(event)` runs after commit; production is `server/cache-invalidation.ts` (`updateTag` + `revalidatePath`), tests pass a recorder. No `vi.mock`.
-- Actions take `actor_id`, not `Session`, so step 3 does not constrain them. Inputs are plain types; zod validators belong to the action layer (step 3).
-- Algolia calls, `sync-algolia*`, `get-article` (`unstable_cache`, step 4), `sync_members` (step 6) and the zod validators are not ported. Search will hang off `emit` in step 7.
-- Pure and tested directly: `lib/cache-policy.ts` (no `query_keys`, TanStack Query is dropped), `server/article/lifecycle-rules.ts`, `lib/title-to-slug.ts` (no `sanitize-html`/`sanitize-filename`/`uuid`), `server/article/content-media.ts`. Slug-request resolution and visibility are left for step 4.
-- `rename_guest` and `delete_guests` are now scoped to guests; the old `rename_guest` could rename a member.
-- Untested here: `FOR UPDATE` contention on supersede-publish (pglite has one connection) and the real `updateTag` adapter. Both belong to a deployed check.
+- Seams are `create_articles({ db, emit })` and `create_authors({ db, emit })`. Search (step 7) hangs off `emit`, so lifecycle code never learns about it.
+- Not ported: Algolia, `get-article` (step 4), `sync_members` and its diff (step 6), the zod validators (step 3, action layer), slug-request resolution and visibility (step 4).
+- TanStack Query is dropped; `cache-policy` has no `query_keys`.
+- `title_to_slug` is pinned to production by `lib/title-to-slug.golden.json` (published titles and their stored slugs, captured 2026-11-02). Known gaps against the old function, on input real titles do not contain: numeric and named HTML entities, and `<script>`-style or malformed tags. Fix when step 4 picks the HTML sanitizer, and let slug, meta title and TOC share one `strip_html_to_text`.
+- Not tested here: `FOR UPDATE` contention on supersede-publish (pglite has one connection) and the real `updateTag` adapter. Both belong to a deployed check.
 
 ## 3. Auth
 
