@@ -50,13 +50,21 @@ describe("by_slug", () => {
       slug: "cudovita-jama",
       page: {
         title: "Čudovita jama",
-        authors: [{ first_name: "Ana", last_name: "Novak", display_name: "Ana Novak" }],
         thumbnail: null,
       },
     });
     if (result.outcome !== "found") throw new Error("unreachable");
+    // Exact: a column added to the author row must not reach the public shape.
+    expect(result.page.authors).toEqual([
+      {
+        id: member!.id,
+        author_type: "member",
+        first_name: "Ana",
+        last_name: "Novak",
+        display_name: "Ana Novak",
+      },
+    ]);
     expect(result.page.published_at).toMatch(/^\d{4}-\d\d-\d\dT/);
-    expect(JSON.stringify(result.page)).not.toMatch(/ana@jknm\.si|g-1/);
   });
 
   test("a renamed-away slug redirects to the primary one", async () => {

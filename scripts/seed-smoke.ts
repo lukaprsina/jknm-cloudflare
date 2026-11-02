@@ -1,6 +1,6 @@
 /**
  * Seeds a LOCAL database with one article per visibility case for
- * `scripts/smoke-public.ts`. Refuses anything but a localhost URL.
+ * `scripts/smoke-public.ts`. Refuses anything but a local database named *smoke* or *probe*.
  * Usage: DATABASE_URL=postgres://... vpx scripts/seed-smoke.ts
  */
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -8,7 +8,12 @@ import { Pool } from "pg";
 import * as schema from "../server/db/schema";
 
 const url = process.env.DATABASE_URL ?? "";
-if (!/@(127\.0\.0\.1|localhost)[:/]/.test(url)) throw new Error("seed-smoke: local DB only");
+// It deletes every article: only a local database named for the purpose qualifies.
+if (!/@(127\.0\.0\.1|localhost):\d+\/\w*(smoke|probe)\w*$/.test(url)) {
+  throw new Error(
+    "seed-smoke: refusing; needs a local database whose name contains smoke or probe",
+  );
+}
 const db = drizzle(new Pool({ connectionString: url }), { schema });
 
 type Seed = {
