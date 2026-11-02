@@ -9,19 +9,16 @@
 
 import { WORKSPACE_EMAIL_DOMAIN } from "../../lib/domains";
 
-/** The one domain club editors sign in from. */
+/** The one domain admins sign in from. */
 export const ALLOWED_EMAIL_DOMAIN = `@${WORKSPACE_EMAIL_DOMAIN}`;
 
 export interface SignInCandidate {
-  /** The OAuth provider id, e.g. `"google"`. */
-  provider: string;
   email: string | null | undefined;
   /** The provider's own claim that it owns the address — not our column. */
   email_verified: boolean | null | undefined;
 }
 
-export function is_allowed_sign_in({ provider, email, email_verified }: SignInCandidate): boolean {
-  if (provider !== "google") return false;
+export function is_allowed_sign_in({ email, email_verified }: SignInCandidate): boolean {
   if (!email_verified) return false;
   if (!email) return false;
   return email.toLowerCase().endsWith(ALLOWED_EMAIL_DOMAIN);

@@ -13,7 +13,6 @@ export async function google_user_info(token: { idToken?: string }) {
   const profile = decodeJwt(token.idToken) as unknown as GoogleProfile;
   if (
     !is_allowed_sign_in({
-      provider: "google",
       email: profile.email,
       email_verified: profile.email_verified,
     })

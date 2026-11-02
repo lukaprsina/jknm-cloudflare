@@ -28,7 +28,7 @@ export type ActionResult<T> =
 
 const failed = (cause: unknown) => new Failed({ message: "Nekaj je šlo narobe.", cause });
 
-const gate = (session: Session | null) =>
+const require_session = (session: Session | null) =>
   session
     ? Result.ok(session)
     : Result.err(new Unauthorized({ message: "Za to dejanje se morate prijaviti." }));
@@ -49,8 +49,11 @@ type Handler<S extends z.ZodType, T> = (input: z.output<S>, session: Session) =>
 
 /**
  * Session gate, then zod parse, then the business function. Business
- * functions are tested directly, not through their actions. Domain rule
- * violations become `code: "rule"` when the lifecycle actions land (step 6).
+ * functions are tested directly, not through their actions. Deliberately
+ * knows nothing about events or cache tags: lifecycle code emits domain
+ * events (`create_articles({ db, emit })`), and wiring `emit` to the
+ * invalidation policy belongs to the step that first needs it. Domain rule
+ * violations become `code: "rule"` with step 6.
  */
 export function create_action(read_session: () => Promise<Session | null>) {
   return <S extends z.ZodType, T>(schema: S, handler: Handler<S, T>) =>
@@ -59,7 +62,7 @@ export function create_action(read_session: () => Promise<Session | null>) {
         const maybe_session = yield* Result.await(
           Result.tryPromise({ try: read_session, catch: failed }),
         );
-        const session = yield* gate(maybe_session);
+        const session = yield* require_session(maybe_session);
         const input = yield* parse(schema, raw);
         const data = yield* Result.await(
           Result.tryPromise({ try: async () => handler(input, session), catch: failed }),

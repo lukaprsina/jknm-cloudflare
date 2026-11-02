@@ -2,7 +2,6 @@ import { describe, expect, test } from "vite-plus/test";
 import { is_allowed_sign_in } from "./sign-in-gate";
 
 const valid = {
-  provider: "google",
   email: "editor@jknm.si",
   email_verified: true,
 };
@@ -14,10 +13,6 @@ describe("is_allowed_sign_in", () => {
 
   test("admits regardless of address casing", () => {
     expect(is_allowed_sign_in({ ...valid, email: "Editor@JKNM.si" })).toBe(true);
-  });
-
-  test.each(["github", "credentials", ""])("rejects the %s provider", (provider) => {
-    expect(is_allowed_sign_in({ ...valid, provider })).toBe(false);
   });
 
   test.each([false, null, undefined])("rejects email_verified = %s", (email_verified) => {

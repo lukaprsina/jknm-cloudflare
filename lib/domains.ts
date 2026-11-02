@@ -1,4 +1,4 @@
-/** Google Workspace membership domain: the only domain club editors sign in from. */
+/** Google Workspace membership domain: the only domain admins sign in from. */
 export const WORKSPACE_EMAIL_DOMAIN = "jknm.si";
 
 /**
@@ -17,5 +17,5 @@ export function deployment_origin(): string {
   return origin;
 }
 
-/** The club's human-facing address, and the only domain editors sign in from. */
+/** The club's human-facing address, and the only domain admins sign in from. */
 export const CONTACT_EMAIL = `info@${WORKSPACE_EMAIL_DOMAIN}`;

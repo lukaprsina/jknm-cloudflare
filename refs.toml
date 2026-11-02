@@ -4,4 +4,6 @@ description = "The repo currently powering www.jknm.si (Next.js on Vercel), we a
 
 [repos.better-result]
 url = "https://github.com/dmmulroy/better-result"
-description = "Result type with TaggedError and generator composition; used by server/create-action.ts."
+ref = "v3.0.1"
+origin = "npm:better-result"
+packages = ["better-result"]
