@@ -38,6 +38,8 @@ export default defineConfig({
       HYPERDRIVE: bindings.hyperdrive({ id: "19395203187c415ba1df0ede2a0f3b0d" }),
       QUEUE: bindings.queue({ name: "jknm-search" }),
       BETTER_AUTH_SECRET: bindings.secret(),
+      GOOGLE_CLIENT_ID: bindings.secret(),
+      GOOGLE_CLIENT_SECRET: bindings.secret(),
     },
   }),
 });
