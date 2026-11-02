@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
+import golden from "./title-to-slug.golden.json";
 import { title_to_slug } from "./title-to-slug";
 
 describe("title_to_slug", () => {
@@ -20,5 +21,16 @@ describe("title_to_slug", () => {
 
   test("falls back when nothing usable remains", () => {
     expect(title_to_slug("???", () => "fallback")).toBe("fallback");
+  });
+});
+
+// Stored slugs are looked up by text when a retitled article is reverted, so
+// the output must not drift. The corpus is every published article title on
+// the live site paired with the slug the old `convert_title_to_url` produced,
+// each checked against the slug stored in production when this was captured
+// (2026-11-02). Expected values come from production, not from this code.
+describe("title_to_slug against production", () => {
+  test.each(golden as [string, string][])("%s", (title, slug) => {
+    expect(title_to_slug(title)).toBe(slug);
   });
 });
