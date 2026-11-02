@@ -16,3 +16,6 @@ export function deployment_origin(): string {
   if (!origin) throw new Error("NEXT_PUBLIC_DEPLOYMENT_ORIGIN is not set");
   return origin;
 }
+
+/** The club's human-facing address, and the only domain editors sign in from. */
+export const CONTACT_EMAIL = `info@${WORKSPACE_EMAIL_DOMAIN}`;
