@@ -39,7 +39,8 @@ Copy `server/article/*`, `server/author/*` (no Google sync), `lib/cache-policy.t
 - better-auth per isolate, `useSecureCookies`, `baseURL.fallback`, no `issuer`.
 - **Before first sign-in:** `ALTER COLUMN issuer DROP NOT NULL` on prod `account`.
 - `/api/auth/[...all]`, `/prijava`, `action(schema, handler)` returning `Result`.
-- Human: Google OAuth redirect URI (not spiked).
+- Human: Google OAuth redirect URI (not spiked). Origins: `localhost:3000` and `https://jknm.org` (apex only, no `www.jknm.org`; remove the stray www entry in Google Console). `allowed_hosts`: `localhost:*`, `jknm.org`, `jknm.si`, `www.jknm.si`.
+- Adopt `better-result` for new code from here (`Unauthorized`, `InvalidInput`). `action` flattens to a plain `{ ok, data | error: { code, message, fields? } }` envelope; Result instances do not cross the Server Action boundary. Verify in Vinext (action + `Result.gen` on workerd) and add `better-result` to `refs.toml`. No backfill of step 2 here.
 
 ## 4. Public read path
 
@@ -52,6 +53,8 @@ R2 binding, Images, upload/ingest, `reconcile-media`. Bucket copy with superslur
 ## 6. Admin and editor
 
 `/uredi`, EditorJS (works in dev and build; upload tools and save round-trip untested), lifecycle actions, `/preveri`, `/avtorji`, member sync (`fetch` + `jose`, ready).
+
+Backfill `better-result` into `server/article/lifecycle-rules` here, when the first caller exists: one `RuleViolation` tagged error (`rule` field, `message`), mapped to `code: "rule"` by `action`. Leave `one` / `found` / `find_source` as throws (invariants, not expected failures).
 
 ## 7. Search
 
