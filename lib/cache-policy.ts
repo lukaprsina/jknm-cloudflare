@@ -31,6 +31,7 @@ export type CacheTag = (typeof CACHE_TAGS)[number];
 export const DOMAIN_EVENTS = [
   "article.created",
   "article.saved",
+  "article.live_saved",
   "article.published",
   "article.archived",
   "article.unarchived",
@@ -75,6 +76,9 @@ const INVALIDATIONS: Record<DomainEvent, Invalidations> = {
   // page does: an archived article was already hidden and a hidden slug is never
   // cached, so the `article` tag is not needed. Nor is the homepage feed.
   "article.unarchived": { tags: ["drafts", "archive", "all-published"], paths: PATHS },
+  // A plain save of a published article (a retitle mints a new primary slug)
+  // changes what the public sees, unlike a draft save.
+  "article.live_saved": PUBLISHED_SET_CHANGED,
   "article.published": PUBLISHED_SET_CHANGED,
   "article.archived": PUBLISHED_SET_CHANGED,
   "article.deleted": PUBLISHED_SET_CHANGED,

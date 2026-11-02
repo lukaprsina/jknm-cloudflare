@@ -2,16 +2,18 @@ import { describe, expect, test } from "vite-plus/test";
 import { CACHE_TAGS, DOMAIN_EVENTS, invalidations_for } from "./cache-policy";
 
 describe("invalidations_for", () => {
-  test.each(["article.published", "article.archived", "article.deleted"] as const)(
-    "%s changes the published set",
-    (event) => {
-      const { tags, paths } = invalidations_for(event);
-      expect([...tags].sort()).toEqual(
-        ["all-published", "archive", "article", "drafts", "homepage-feed"].sort(),
-      );
-      expect(paths).toEqual(["/", "/sitemap.xml"]);
-    },
-  );
+  test.each([
+    "article.published",
+    "article.live_saved",
+    "article.archived",
+    "article.deleted",
+  ] as const)("%s changes the published set", (event) => {
+    const { tags, paths } = invalidations_for(event);
+    expect([...tags].sort()).toEqual(
+      ["all-published", "archive", "article", "drafts", "homepage-feed"].sort(),
+    );
+    expect(paths).toEqual(["/", "/sitemap.xml"]);
+  });
 
   test.each([
     "article.created",

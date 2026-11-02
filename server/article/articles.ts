@@ -151,7 +151,7 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
         }
         return find_article_with_relations(tx, eq(Article.id, input.article_id));
       });
-      await announce("article.saved");
+      await announce(saved?.status === "published" ? "article.live_saved" : "article.saved");
       return saved;
     },
 

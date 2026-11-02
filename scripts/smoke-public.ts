@@ -7,7 +7,7 @@
  * Usage: BASE_URL=http://localhost:4180 vpx scripts/smoke-public.ts
  */
 export {};
-const base = process.env.BASE_URL ?? "http://localhost:4173";
+const base = process.env.BASE_URL ?? "http://localhost:4180";
 
 const cases: { path: string; status: number; location?: string; cached?: boolean }[] = [
   { path: "/novica/pub-a", status: 200, cached: true },

@@ -6,7 +6,7 @@ import { create_published, type SlugResult } from "./create-published";
 
 const published = create_published({ db });
 
-class Miss extends Error {}
+class NotFoundSignal extends Error {}
 
 /**
  * `not_found` throws inside the cached function so it is never stored: a
@@ -17,7 +17,7 @@ class Miss extends Error {}
 const cached_by_slug = unstable_cache(
   async (slug: string) => {
     const result = await published.by_slug(slug);
-    if (result.outcome === "not_found") throw new Miss();
+    if (result.outcome === "not_found") throw new NotFoundSignal();
     return result;
   },
   ["published-by-slug"],
@@ -30,7 +30,7 @@ const by_slug = cache(async (slug: string): Promise<SlugResult> => {
   try {
     return await cached_by_slug(slug);
   } catch (error) {
-    if (error instanceof Miss) return { outcome: "not_found" };
+    if (error instanceof NotFoundSignal) return { outcome: "not_found" };
     throw error;
   }
 });
