@@ -10,7 +10,7 @@ export const INTERNAL_PREFIX = "/api/internal/";
 export const REVALIDATE_PATH = `${INTERNAL_PREFIX}revalidate`;
 export const INTERNAL_HEADER = "x-internal-token";
 
-export function createInternalGate() {
+export function create_internal_gate() {
   // Minted on first use: random values are not allowed in Worker global scope.
   let minted: string | undefined;
   const token = () => (minted ??= crypto.randomUUID());

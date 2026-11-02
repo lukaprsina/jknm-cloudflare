@@ -1,21 +1,21 @@
 import handler from "vinext/server/fetch-handler";
-import { runWithDb } from "@/server/db";
-import { createPgDb } from "@/server/db/pg";
-import { getServerEnv } from "@/server/env";
-import { createInternalGate, REVALIDATE_PATH } from "./internal-gate";
+import { run_with_db } from "@/server/db";
+import { create_pg_db } from "@/server/db/pg";
+import { get_server_env } from "@/server/env";
+import { create_internal_gate, REVALIDATE_PATH } from "./internal-gate";
 
 export * from "vinext/server/fetch-handler";
 
-const gate = createInternalGate();
+const gate = create_internal_gate();
 
 const scoped = <T>(fn: () => T) =>
-  runWithDb(createPgDb(getServerEnv().HYPERDRIVE.connectionString), fn);
+  run_with_db(create_pg_db(get_server_env().HYPERDRIVE.connectionString), fn);
 
 /**
  * `revalidateTag` from `next/cache` is a no-op in `queue`/`scheduled`, so
  * invalidation goes through the app's own internal route.
  */
-export async function revalidateTags(tags: string[], env: Env, ctx: ExecutionContext) {
+export async function revalidate_tags(tags: string[], env: Env, ctx: ExecutionContext) {
   const response = await handler.fetch(
     new Request(`http://internal${REVALIDATE_PATH}`, {
       method: "POST",

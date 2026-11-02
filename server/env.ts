@@ -15,4 +15,4 @@ const schema = z.object({
 export type ServerEnv = z.infer<typeof schema>;
 
 let cached: ServerEnv | undefined;
-export const getServerEnv = (): ServerEnv => (cached ??= schema.parse(env));
+export const get_server_env = (): ServerEnv => (cached ??= schema.parse(env));
