@@ -39,7 +39,18 @@ Copy `server/article/*`, `server/author/*` (no Google sync), `lib/cache-policy.t
 - better-auth per isolate, `useSecureCookies`, `baseURL.fallback`, no `issuer`.
 - **Before first sign-in:** `ALTER COLUMN issuer DROP NOT NULL` on prod `account`.
 - `/api/auth/[...all]`, `/prijava`, `action(schema, handler)` returning `Result`.
-- Human: Google OAuth redirect URI (not spiked).
+- Human: Google OAuth redirect URI (not spiked). Origins: `localhost:3000` and `https://jknm.org` (apex only, no `www.jknm.org`; remove the stray www entry in Google Console). `allowed_hosts`: `localhost:*`, `jknm.org`, `jknm.si`, `www.jknm.si`.
+- Adopt `better-result` for new code from here (`Unauthorized`, `InvalidInput`). `action` flattens to a plain `{ ok, data | error: { code, message, fields? } }` envelope; Result instances do not cross the Server Action boundary. Verify in Vinext (action + `Result.gen` on workerd) and add `better-result` to `refs.toml`. No backfill of step 2 here.
+
+**Done (branch `port/auth`):** `server/auth/*`, `server/create-action.ts`, `server/action.ts`, `/api/auth/[...all]`, a bare `/prijava`. Decisions the code does not show:
+
+- Seam is `create_auth({ db, ... })` (pure); `get_auth()` is the isolate singleton over the ambient `db` proxy. `secure_cookies` comes from the scheme of `NEXT_PUBLIC_DEPLOYMENT_ORIGIN`, so there is no environment binding. `fallback_origin` is that same origin: a host outside `APP_HOSTS` gets it, so a foreign `Host` header never reaches a redirect URI, and `auth.api.*` works in Cron/Queue.
+- `wait_until` is not wired (optional; `server/env.ts` stays the only `cloudflare:workers` importer).
+- `get_session()` returns `Session | null` for pages; `action` turns null into `Unauthorized`. `ActionResult` is plain data (`unauthorized | invalid | failed`; `rule` arrives with step 6). Messages are Slovenian; a `failed` message is generic and the cause goes to `console.error`.
+- Local Worker secrets come from `.dev.vars`, not `.env` (preview does not read `.env`). `.dev.vars` needs `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`; deployed, set them with `cf`.
+- Checked on the built Worker (`vp build` + `vp preview`): no chunk cycle, sign-in start builds the redirect URI from the host, `/prijava` shows the session from a signed cookie, `action` (incl. `Result.gen`) returns the expected plain results on workerd.
+- Not checked: a real Google sign-in round trip, and an `action` invoked from a client (no action exists yet; step 6). Google redirect URIs are exact, per origin: add the port `vp dev` / `vp preview` actually uses.
+- Still to do by hand before the first real sign-in: `ALTER TABLE account ALTER COLUMN issuer DROP NOT NULL;` on prod. A fresh backup is `scripts/backup-db.sh` (`~/backups/jknm`).
 
 ## 4. Public read path
 
@@ -52,6 +63,8 @@ R2 binding, Images, upload/ingest, `reconcile-media`. Bucket copy with superslur
 ## 6. Admin and editor
 
 `/uredi`, EditorJS (works in dev and build; upload tools and save round-trip untested), lifecycle actions, `/preveri`, `/avtorji`, member sync (`fetch` + `jose`, ready).
+
+Backfill `better-result` into `server/article/lifecycle-rules` here, when the first caller exists: one `RuleViolation` tagged error (`rule` field, `message`), mapped to `code: "rule"` by `action`. Leave `one` / `found` / `find_source` as throws (invariants, not expected failures).
 
 ## 7. Search
 
