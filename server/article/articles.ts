@@ -4,6 +4,7 @@ import { Article, ArticlesToAuthors, type ArticleContentType } from "../db/schem
 import { resilient, type Emit } from "../events";
 import {
   assert_one,
+  copied_columns,
   find_article_with_relations,
   resolve_thumbnail,
   soft_delete_article,
@@ -306,18 +307,8 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
         const created = await tx
           .insert(Article)
           .values({
-            title: source.title,
+            ...copied_columns(source),
             status: "draft",
-            article_kind: source.article_kind,
-            published_at: source.published_at,
-            content_json: source.content_json,
-            excerpt: source.excerpt,
-            thumbnail_media_id: source.thumbnail_media_id,
-            thumbnail_x: source.thumbnail_x,
-            thumbnail_y: source.thumbnail_y,
-            thumbnail_width: source.thumbnail_width,
-            thumbnail_height: source.thumbnail_height,
-            uploaded_custom_thumbnail: source.uploaded_custom_thumbnail,
             supersedes_id: source.id,
             created_by: actor_id,
           })

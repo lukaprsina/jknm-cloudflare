@@ -77,3 +77,32 @@ export async function resolve_thumbnail(tx: DbTransaction, crop: ThumbnailCrop |
     uploaded_custom_thumbnail: crop.uploaded_custom_thumbnail ?? null,
   };
 }
+
+type ArticleRow = typeof Article.$inferSelect;
+
+/**
+ * The `articles` columns a revision starts with, copied from its source. Every
+ * other column is deliberately not copied (see the classification test), so a
+ * new column has to be put in one list or the other.
+ */
+export const REVISION_COPIED_COLUMNS = [
+  "title",
+  "article_kind",
+  "published_at",
+  "content_json",
+  "excerpt",
+  "thumbnail_media_id",
+  "thumbnail_x",
+  "thumbnail_y",
+  "thumbnail_width",
+  "thumbnail_height",
+  "uploaded_custom_thumbnail",
+] as const satisfies readonly (keyof ArticleRow)[];
+
+type CopiedColumn = (typeof REVISION_COPIED_COLUMNS)[number];
+
+export function copied_columns(source: Pick<ArticleRow, CopiedColumn>) {
+  return Object.fromEntries(
+    REVISION_COPIED_COLUMNS.map((column) => [column, source[column]]),
+  ) as Pick<ArticleRow, CopiedColumn>;
+}

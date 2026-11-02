@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vite-plus/test";
-import { eq } from "drizzle-orm";
+import { eq, getTableColumns } from "drizzle-orm";
 import type { DomainEvent } from "../../lib/cache-policy";
 import { create_test_db } from "../db/test-helpers";
 import { Article, Author, Media, MediaToArticles, users } from "../db/schema";
+import { REVISION_COPIED_COLUMNS } from "./article-rows";
 import { create_articles } from "./articles";
 
 async function setup() {
@@ -621,5 +622,68 @@ describe("publishing a revision, further cases", () => {
     const { article } = await publish_as(articles, revision.id, "Velika jama");
 
     expect(article.legacy_id).toBe(77);
+  });
+});
+
+describe("what a revision copies from its source", () => {
+  // Columns a revision deliberately does not copy, and why. A new `articles`
+  // column fails the classification test below until it is put in one list.
+  const NOT_COPIED = [
+    "id", // its own row
+    "status", // a revision is always a draft
+    "supersedes_id", // points at the source instead
+    "created_by", // the actor who started the revision
+    "created_at",
+    "updated_at",
+    "legacy_id", // unique; moves from source to revision on publish
+    "archived_at",
+    "deleted_at",
+    "published_year", // generated from published_at
+  ];
+
+  test("every articles column is either copied or deliberately not", () => {
+    const all = Object.keys(getTableColumns(Article)).sort();
+    const classified = [...REVISION_COPIED_COLUMNS, ...NOT_COPIED].sort();
+
+    expect(classified).toEqual(all);
+  });
+
+  test("copies content, kind, date, excerpt and thumbnail crop", async () => {
+    const { db, articles } = await setup();
+    const media = await add_media(db, "naslovna.jpg");
+    const source = await publish_new(articles, "Zgodovina");
+    const content = { blocks: [{ type: "paragraph", data: { text: "Besedilo" } }] };
+    const published_at = new Date("2018-03-04T00:00:00Z");
+    await db
+      .update(Article)
+      .set({
+        article_kind: "content",
+        published_at,
+        content_json: content,
+        excerpt: "Povzetek",
+        thumbnail_media_id: media.id,
+        thumbnail_x: 1,
+        thumbnail_y: 2,
+        thumbnail_width: 3,
+        thumbnail_height: 4,
+        uploaded_custom_thumbnail: true,
+      })
+      .where(eq(Article.id, source.id));
+
+    const revision = await articles.create_superseding_draft({ article_id: source.id }, "admin");
+
+    expect(revision).toMatchObject({
+      title: "Zgodovina",
+      article_kind: "content",
+      published_at,
+      content_json: content,
+      excerpt: "Povzetek",
+      thumbnail_media_id: media.id,
+      thumbnail_x: 1,
+      thumbnail_y: 2,
+      thumbnail_width: 3,
+      thumbnail_height: 4,
+      uploaded_custom_thumbnail: true,
+    });
   });
 });
