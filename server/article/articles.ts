@@ -232,7 +232,7 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
      * draft this deletes the source too ("take the article down"); to cancel
      * just the revision, use `discard_draft`.
      */
-    async remove(input: { article_id: string }) {
+    async delete(input: { article_id: string }) {
       const deleted = await db.transaction(async (tx) => {
         const { target, cascade_delete_draft_id } = await find_lifecycle_target(
           tx,

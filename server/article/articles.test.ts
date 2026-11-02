@@ -248,7 +248,7 @@ describe("slug collisions", () => {
   test("a deleted article's slug is reusable, since its URL is a dead end", async () => {
     const { articles } = await setup();
     const first = await publish_titled(articles, "Jama");
-    await articles.remove({ article_id: first.article.id });
+    await articles.delete({ article_id: first.article.id });
 
     const second = await publish_titled(articles, "Jama");
 
@@ -305,12 +305,12 @@ describe("archive and delete", () => {
     const { articles, events } = await setup();
     const published = await publish_new(articles, "Jama");
 
-    const deleted = await articles.remove({ article_id: published.id });
+    const deleted = await articles.delete({ article_id: published.id });
 
     expect(deleted.status).toBe("deleted");
     expect(deleted.deleted_at).toBeInstanceOf(Date);
     expect(events.at(-1)).toBe("article.deleted");
-    await expect(articles.remove({ article_id: published.id })).rejects.toThrow(/already deleted/);
+    await expect(articles.delete({ article_id: published.id })).rejects.toThrow(/already deleted/);
     await expect(articles.archive({ article_id: published.id })).rejects.toThrow(/archive/);
   });
 });
@@ -391,7 +391,7 @@ describe("superseding drafts", () => {
       { article_id: delete_source.id },
       "admin",
     );
-    await articles.remove({ article_id: delete_revision.id });
+    await articles.delete({ article_id: delete_revision.id });
     expect(await status_of(db, delete_source.id)).toBe("deleted");
     expect(await status_of(db, delete_revision.id)).toBe("deleted");
   });
