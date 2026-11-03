@@ -50,7 +50,7 @@ Copy `server/article/*`, `server/author/*` (no Google sync), `lib/cache-policy.t
 - Local Worker secrets come from `.dev.vars`, not `.env` (preview does not read `.env`). `.dev.vars` needs `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`; deployed, set them with `cf`.
 - Checked on the built Worker (`vp build` + `vp preview`): no chunk cycle, sign-in start builds the redirect URI from the host, `/prijava` shows the session from a signed cookie, `action` (incl. `Result.gen`) returns the expected plain results on workerd.
 - Not checked: a real Google sign-in round trip, and an `action` invoked from a client (no action exists yet; step 6). Google redirect URIs are exact, per origin: add the port `vp dev` / `vp preview` actually uses.
-- Still to do by hand before the first real sign-in: `ALTER TABLE account ALTER COLUMN issuer DROP NOT NULL;` on prod. A fresh backup is `scripts/backup-db.sh` (`~/backups/jknm`).
+- Still to do by hand before the first real sign-in: `ALTER TABLE account ALTER COLUMN issuer DROP NOT NULL;` on prod. A fresh backup is `scripts/backup-db.sh` (`~/.backups/jknm`).
 
 ## 4. Public read path
 

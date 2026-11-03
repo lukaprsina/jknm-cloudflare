@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { strip_html_to_text } from "../../lib/inline-html";
 import { to_public_author, type PublicAuthorView } from "../author/public-shape";
 import { find_article_with_relations } from "../article/article-rows";
 import type { Db } from "../db";
@@ -6,11 +7,13 @@ import { Article, ArticleSlug, type ArticleContentType } from "../db/schema";
 
 /** An article as the public sees it: plain serializable data, no private author fields. */
 export interface PublishedPage {
+  /** Plain text: some stored titles still carry editor markup. */
   title: string;
   excerpt: string;
   content: ArticleContentType | null;
   /** ISO date; null only for rows that were never dated. */
   published_at: string | null;
+  modified_at: string;
   authors: PublicAuthorView[];
   thumbnail: { url: string; width: number; height: number } | null;
 }
@@ -51,10 +54,11 @@ export function create_published({ db }: { db: Db }) {
         outcome: "found",
         slug: primary,
         page: {
-          title: article.title,
+          title: strip_html_to_text(article.title),
           excerpt: article.excerpt ?? "",
           content: article.content_json,
           published_at: article.published_at?.toISOString() ?? null,
+          modified_at: article.updated_at.toISOString(),
           authors: article.articles_to_authors.map(({ author }) => to_public_author(author)),
           thumbnail: original
             ? { url: original.url, width: original.width, height: original.height }

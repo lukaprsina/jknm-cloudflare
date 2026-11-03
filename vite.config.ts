@@ -5,6 +5,9 @@ import { responseStoreServiceBinding } from "./cloudflare.config";
 import { responseStoreAdapter } from "@vinext/cloudflare/cache/response-store-adapter";
 import { imagesOptimizer } from "@vinext/cloudflare/images/images-optimizer";
 
+// Vitest sets VITEST. The framework build owns JSX and `@/` resolution, so these are test-only.
+const under_test = Boolean(process.env.VITEST);
+
 export default defineConfig({
   staged: {
     "*": "vp check --fix",
@@ -18,9 +21,13 @@ export default defineConfig({
   test: {
     exclude: [...configDefaults.exclude, ".references/**", ".cloudflare/**"],
   },
+  // Component tests import through the tsconfig `@/*` paths and need JSX compiled
+  // (tsconfig keeps it as `preserve` for the framework build).
+  resolve: under_test ? { tsconfigPaths: true } : undefined,
+  oxc: under_test ? { jsx: { runtime: "automatic" } } : undefined,
   // vinext/Cloudflare plugins need workerd; unit tests run in plain Node.
   plugins: lazyPlugins(() =>
-    process.env.VITEST
+    under_test
       ? []
       : [
           vinext({

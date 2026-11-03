@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { connection } from "next/server";
+import { ArticleBody } from "@/components/article-body";
+import { ArticleLayout } from "@/components/article-layout";
+import { deployment_origin } from "@/lib/domains";
 import { image_url } from "@/lib/image-url";
+import { article_json_ld, json_ld } from "@/lib/json-ld";
+import { prepare_article } from "@/lib/prepare-article";
 import { get_published } from "@/server/published";
 
 export const revalidate = 3600;
@@ -24,39 +29,53 @@ async function load({ params }: Props) {
   }
   if (result.outcome === "redirect")
     permanentRedirect(`/novica/${encodeURIComponent(result.slug)}`);
-  return result.page;
+  return result;
 }
 
+const article_url = (slug: string) => `${deployment_origin()}/novica/${encodeURIComponent(slug)}`;
+
 export async function generateMetadata(props: Props): Promise<Metadata> {
-  return { title: (await load(props)).title };
+  const { slug, page } = await load(props);
+  const url = article_url(slug);
+  return {
+    title: page.title,
+    description: page.excerpt,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "article",
+      url,
+      title: page.title,
+      description: page.excerpt,
+      publishedTime: page.published_at ?? undefined,
+      modifiedTime: page.modified_at,
+      // No key at all without a thumbnail, so the default preview image (#10) can apply.
+      ...(page.thumbnail && { images: [image_url(page.thumbnail.url, 1200)] }),
+    },
+  };
 }
 
 export default async function Novica(props: Props) {
-  const page = await load(props);
+  const { slug, page } = await load(props);
+  const { headings, blocks } = prepare_article(page.content);
+
+  const structured_data = article_json_ld(
+    page,
+    article_url(slug),
+    page.thumbnail ? image_url(page.thumbnail.url, 1200) : undefined,
+  );
+
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-3xl font-semibold">{page.title}</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {page.authors.map((author) => author.display_name).join(", ")}
-      </p>
-      {page.thumbnail && (
-        // oxlint-disable-next-line next/no-img-element -- images skip the framework optimizer
-        <img
-          src={image_url(page.thumbnail.url, 800)}
-          width={page.thumbnail.width}
-          height={page.thumbnail.height}
-          alt=""
-          className="mt-6 h-auto w-full"
-        />
-      )}
-      {/* Placeholder until the content render pass: block text, tags stripped. */}
-      {page.content?.blocks.map((block, index) => (
-        <p key={block.id ?? index} className="mt-4">
-          {"text" in block.data && typeof block.data.text === "string"
-            ? block.data.text.replace(/<[^>]*>/g, "")
-            : null}
+    <ArticleLayout headings={headings}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: json_ld(structured_data) }}
+      />
+      <ArticleBody blocks={blocks} />
+      {page.authors.length > 0 && (
+        <p className="mt-8 text-sm text-muted-foreground">
+          {page.authors.map((author) => author.display_name).join(", ")}
         </p>
-      ))}
-    </main>
+      )}
+    </ArticleLayout>
   );
 }
