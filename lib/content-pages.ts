@@ -11,3 +11,6 @@ export const CONTENT_PAGES = [
 ] as const;
 
 export type ContentPageSlug = (typeof CONTENT_PAGES)[number]["slug"];
+
+export const is_content_page = (slug: string): slug is ContentPageSlug =>
+  CONTENT_PAGES.some((page) => page.slug === slug);

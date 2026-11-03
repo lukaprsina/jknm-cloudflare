@@ -6,10 +6,18 @@
  * `cached: false` means the response must never be stored (junk slugs cannot grow the store).
  * Usage: BASE_URL=http://localhost:4180 vpx scripts/smoke-public.ts
  */
-export {};
+import { CONTENT_PAGES } from "../lib/content-pages";
+
 const base = process.env.BASE_URL ?? "http://localhost:4180";
 
-const cases: { path: string; status: number; location?: string; cached?: boolean }[] = [
+const cases: {
+  path: string;
+  status: number;
+  location?: string;
+  cached?: boolean;
+  /** Text the body must contain. */
+  includes?: string;
+}[] = [
   { path: "/novica/pub-a", status: 200, cached: true },
   { path: "/novica/renamed-b-new", status: 200, cached: true },
   { path: "/novica/renamed-b-old", status: 308, location: "/novica/renamed-b-new", cached: true },
@@ -20,6 +28,16 @@ const cases: { path: string; status: number; location?: string; cached?: boolean
   { path: "/novica/content-x", status: 404, cached: false },
   { path: "/novica/unknown-slug", status: 404, cached: false },
   { path: "/novica/junk-2", status: 404, cached: false },
+  // The club pages: stored like articles, one route driven by the fixed slug list.
+  ...CONTENT_PAGES.map(({ slug }) => ({
+    path: `/${slug}`,
+    status: 200,
+    cached: true,
+  })),
+  // Not in the list: a real 404 that is never stored, inside the site shell (the skip link).
+  { path: "/foo", status: 404, cached: false, includes: "Preskoči na vsebino" },
+  // The top-level club route must not shadow the static routes beside it.
+  { path: "/prijava", status: 200 },
   // The framework rejects invalid percent-encoding itself, before routing.
   { path: "/novica/%E0%A4%A", status: 400 },
 ];
@@ -27,8 +45,8 @@ const cases: { path: string; status: number; location?: string; cached?: boolean
 let failed = 0;
 async function get(path: string) {
   const res = await fetch(base + path, { redirect: "manual" });
-  await res.arrayBuffer();
   return {
+    body: await res.text(),
     status: res.status,
     location: res.headers.get("location"),
     cache: res.headers.get("x-vinext-cache"),
@@ -40,6 +58,7 @@ for (const c of cases) {
   const second = await get(c.path);
   const problems: string[] = [];
   if (first.status !== c.status) problems.push(`status ${first.status} != ${c.status}`);
+  if (c.includes && !first.body.includes(c.includes)) problems.push(`body lacks "${c.includes}"`);
   if (c.location && first.location !== c.location) problems.push(`location ${first.location}`);
   if (c.cached === false && second.cache === "HIT") problems.push("404 was stored");
   if (c.cached && second.cache !== "HIT") problems.push(`second request not HIT (${second.cache})`);

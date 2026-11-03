@@ -5,7 +5,7 @@ import { strip_html_to_text } from "../../lib/inline-html";
 import { to_public_author, type PublicAuthorView } from "../author/public-shape";
 import { ARTICLE_RELATIONS, find_article_with_relations } from "../article/article-rows";
 import type { Db } from "../db";
-import { Article, ArticleSlug, type ArticleContentType } from "../db/schema";
+import { Article, ArticleSlug, type ArticleContentType, type ArticleKind } from "../db/schema";
 
 /** An article as the public sees it: plain serializable data, no private author fields. */
 export interface PublishedPage {
@@ -24,6 +24,10 @@ export type SlugResult =
   | { outcome: "found"; slug: string; page: PublishedPage }
   /** `slug` is the primary one the caller should send the visitor to. */
   | { outcome: "redirect"; slug: string }
+  | { outcome: "not_found" };
+
+export type ContentPageResult =
+  | { outcome: "found"; page: PublishedPage }
   | { outcome: "not_found" };
 
 /** A news article as a homepage card. */
@@ -55,18 +59,18 @@ const NOT_FOUND = { outcome: "not_found" } as const;
 
 /**
  * Everything the public may see of the articles, and under which URL. The one
- * place that decides visibility: a `published` news article that has a primary
- * slug, nothing else, for everyone (ADR-0001).
+ * place that decides visibility: a `published` article of the wanted kind that
+ * has a primary slug, nothing else, for everyone (ADR-0001).
  */
 export function create_published({ db }: { db: Db }) {
   // Uncorrelated on purpose: drizzle's relational `where` rewrites column
   // references to the root alias, which would break a correlated EXISTS.
   // A function, not a value: the ambient `db` may only be touched inside a query.
-  const is_published = () =>
+  const is_published = (kind: ArticleKind) =>
     and(
       eq(Article.status, "published"),
-      // Content pages live at their own routes; serving them here too would duplicate them.
-      eq(Article.article_kind, "article"),
+      // News and content pages live at their own routes; serving one at the other's would duplicate it.
+      eq(Article.article_kind, kind),
       inArray(
         Article.id,
         db
@@ -76,12 +80,29 @@ export function create_published({ db }: { db: Db }) {
       ),
     );
 
+  async function load_page(article_id: string): Promise<PublishedPage | null> {
+    const article = await find_article_with_relations(db, eq(Article.id, article_id));
+    if (!article) return null;
+    const original = article.thumbnail_media?.original;
+    return {
+      title: strip_html_to_text(article.title),
+      excerpt: excerpt_of(article.content_json),
+      content: article.content_json,
+      published_at: article.published_at?.toISOString() ?? null,
+      modified_at: article.updated_at.toISOString(),
+      authors: article.articles_to_authors.map(({ author }) => to_public_author(author)),
+      thumbnail: original
+        ? { url: original.url, width: original.width, height: original.height }
+        : null,
+    };
+  }
+
   return {
     /** Newest first; publish-date ties are broken by id so pages never overlap or skip. */
     async feed({ limit, after }: { limit: number; after?: FeedCursor }): Promise<FeedPage> {
       const rows = await db.query.Article.findMany({
         where: and(
-          is_published(),
+          is_published("article"),
           after &&
             sql`(${Article.published_at}, ${Article.id}) < (${after.published_at}::timestamptz, ${after.id}::uuid)`,
         ),
@@ -132,30 +153,32 @@ export function create_published({ db }: { db: Db }) {
           primary_slug,
           and(eq(primary_slug.article_id, Article.id), eq(primary_slug.is_primary, true)),
         )
-        .where(and(eq(ArticleSlug.slug, requested), is_published()));
+        .where(and(eq(ArticleSlug.slug, requested), is_published("article")));
       if (!hit) return NOT_FOUND;
       if (hit.primary !== requested) return { outcome: "redirect", slug: hit.primary };
 
       // Only a served article pays for the full load; junk slugs stop above.
-      const article = await find_article_with_relations(db, eq(Article.id, hit.article_id));
+      const page = await load_page(hit.article_id);
       // Unpublished between the two queries.
-      if (!article) return NOT_FOUND;
-      const original = article.thumbnail_media?.original;
-      return {
-        outcome: "found",
-        slug: hit.primary,
-        page: {
-          title: strip_html_to_text(article.title),
-          excerpt: excerpt_of(article.content_json),
-          content: article.content_json,
-          published_at: article.published_at?.toISOString() ?? null,
-          modified_at: article.updated_at.toISOString(),
-          authors: article.articles_to_authors.map(({ author }) => to_public_author(author)),
-          thumbnail: original
-            ? { url: original.url, width: original.width, height: original.height }
-            : null,
-        },
-      };
+      return page ? { outcome: "found", slug: hit.primary, page } : NOT_FOUND;
+    },
+
+    /** Only the primary slug counts: an alias of a content page is not a route, so it never redirects. */
+    async by_content_page(slug: string): Promise<ContentPageResult> {
+      const [hit] = await db
+        .select({ article_id: Article.id })
+        .from(ArticleSlug)
+        .innerJoin(Article, eq(Article.id, ArticleSlug.article_id))
+        .where(
+          and(
+            eq(ArticleSlug.slug, slug),
+            eq(ArticleSlug.is_primary, true),
+            is_published("content"),
+          ),
+        );
+      // Null when unpublished between the two queries.
+      const page = hit && (await load_page(hit.article_id));
+      return page ? { outcome: "found", page } : NOT_FOUND;
     },
   };
 }

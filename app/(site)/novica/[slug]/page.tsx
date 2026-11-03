@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { notFound, permanentRedirect } from "next/navigation";
-import { connection } from "next/server";
+import { permanentRedirect } from "next/navigation";
 import { ArticleBody } from "@/components/article-body";
 import { ArticleLayout } from "@/components/article-layout";
-import { deployment_origin } from "@/lib/domains";
+import { page_url } from "@/lib/domains";
 import { image_url } from "@/lib/image-url";
 import { article_json_ld, json_ld } from "@/lib/json-ld";
 import { prepare_article } from "@/lib/prepare-article";
+import { not_found_uncached } from "@/lib/not-found-uncached";
+import { published_metadata } from "@/lib/published-metadata";
 import { get_published } from "@/server/published";
 
 export const revalidate = 3600;
@@ -22,36 +23,17 @@ type Props = { params: Promise<{ slug: string }> };
  */
 async function load({ params }: Props) {
   const result = await get_published().by_slug((await params).slug);
-  if (result.outcome === "not_found") {
-    // A dynamic render is never stored, so junk URLs cannot accumulate entries.
-    await connection();
-    notFound();
-  }
+  if (result.outcome === "not_found") return not_found_uncached();
   if (result.outcome === "redirect")
     permanentRedirect(`/novica/${encodeURIComponent(result.slug)}`);
   return result;
 }
 
-const article_url = (slug: string) => `${deployment_origin()}/novica/${encodeURIComponent(slug)}`;
+const article_url = (slug: string) => page_url(`/novica/${encodeURIComponent(slug)}`);
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const { slug, page } = await load(props);
-  const url = article_url(slug);
-  return {
-    title: page.title,
-    description: page.excerpt,
-    alternates: { canonical: url },
-    openGraph: {
-      type: "article",
-      url,
-      title: page.title,
-      description: page.excerpt,
-      publishedTime: page.published_at ?? undefined,
-      modifiedTime: page.modified_at,
-      // No key at all without a thumbnail, so the default preview image (#10) can apply.
-      ...(page.thumbnail && { images: [image_url(page.thumbnail.url, 1200)] }),
-    },
-  };
+  return published_metadata(page, article_url(slug), "article");
 }
 
 export default async function Novica(props: Props) {
