@@ -65,6 +65,14 @@ describe("by_slug", () => {
       },
     ]);
     expect(result.page.published_at).toMatch(/^\d{4}-\d\d-\d\dT/);
+    expect(result.page.modified_at).toMatch(/^\d{4}-\d\d-\d\dT/);
+  });
+
+  test("the page title is plain text even when the stored title has markup", async () => {
+    const ctx = await setup();
+    await publish(ctx, "Jama <b>pri</b>&nbsp;mostu");
+    const result = await ctx.published.by_slug("jama-pri-mostu");
+    expect(result).toMatchObject({ outcome: "found", page: { title: "Jama pri mostu" } });
   });
 
   test("a renamed-away slug redirects to the primary one", async () => {
