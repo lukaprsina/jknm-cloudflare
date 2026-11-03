@@ -2,7 +2,7 @@ import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import type { CacheTag } from "../../lib/cache-policy";
 import { db } from "../db";
-import { create_published, type SlugResult } from "./create-published";
+import { create_published, type FeedCursor, type SlugResult } from "./create-published";
 
 const published = create_published({ db });
 
@@ -39,5 +39,22 @@ const by_slug = cache(async (slug: string): Promise<SlugResult> => {
   }
 });
 
+/** One featured card, then rows that stay full at 2 and 3 columns. */
+export const FIRST_PAGE_SIZE = 13;
+export const NEXT_PAGE_SIZE = 12;
+
+/**
+ * Only the first page is cached: it is what `/` renders. A later page is keyed
+ * by a client-supplied cursor, so caching it would let visitors grow the cache.
+ * The cards carry no author data, so only the feed tag refreshes them.
+ */
+const first_page = unstable_cache(
+  () => published.feed({ limit: FIRST_PAGE_SIZE }),
+  ["published-feed-first-page"],
+  { tags: ["homepage-feed"] satisfies CacheTag[], revalidate: 3600 },
+);
+
+const next_page = (after: FeedCursor) => published.feed({ limit: NEXT_PAGE_SIZE, after });
+
 /** The public-read module with the framework cache around it. */
-export const get_published = () => ({ by_slug });
+export const get_published = () => ({ by_slug, first_page, next_page });

@@ -1,3 +1,4 @@
+import { FooterGate } from "@/components/shell/footer-gate";
 import { SiteFooter } from "@/components/shell/site-footer";
 import { SiteHeader } from "@/components/shell/site-header";
 
@@ -19,7 +20,9 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <main id="main" className="pb-10">
         {children}
       </main>
-      <SiteFooter />
+      <FooterGate>
+        <SiteFooter />
+      </FooterGate>
     </div>
   );
 }
