@@ -146,3 +146,9 @@ a {
     scroll-behavior: smooth;
   }
 }
+
+:root {
+  /* The anchor offset shared by article headings (scroll-margin-top), the sticky
+     table of contents and its scroll-spy (use-active-headings.ts). */
+  --article-scroll-margin: 4.5rem;
+}

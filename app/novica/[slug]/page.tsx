@@ -2,12 +2,11 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { connection } from "next/server";
 import { ArticleBody } from "@/components/article-body";
-import { ArticleToc } from "@/components/article-toc";
+import { ArticleLayout } from "@/components/article-layout";
 import { deployment_origin } from "@/lib/domains";
 import { image_url } from "@/lib/image-url";
 import { article_json_ld, json_ld } from "@/lib/json-ld";
 import { prepare_article } from "@/lib/prepare-article";
-import { cn } from "@/lib/utils";
 import { get_published } from "@/server/published";
 
 export const revalidate = 3600;
@@ -57,7 +56,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
 export default async function Novica(props: Props) {
   const { slug, page } = await load(props);
-  const { headings, has_toc, blocks } = prepare_article(page.content);
+  const { headings, blocks } = prepare_article(page.content);
 
   const structured_data = article_json_ld(
     page,
@@ -66,27 +65,17 @@ export default async function Novica(props: Props) {
   );
 
   return (
-    // The scroll margin is shared by anchored headings, the sticky column and the scroll-spy.
-    <main
-      style={{ "--article-scroll-margin": "4.5rem" } as React.CSSProperties}
-      className={cn(
-        "mx-auto px-4 pb-10",
-        has_toc ? "max-w-5xl lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-10" : "max-w-3xl",
-      )}
-    >
+    <ArticleLayout headings={headings}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: json_ld(structured_data) }}
       />
-      {has_toc && <ArticleToc headings={headings} />}
-      <article className="pt-6 lg:col-start-1 lg:row-start-1 [&_a]:underline">
-        <ArticleBody blocks={blocks} />
-        {page.authors.length > 0 && (
-          <p className="mt-8 text-sm text-muted-foreground">
-            {page.authors.map((author) => author.display_name).join(", ")}
-          </p>
-        )}
-      </article>
-    </main>
+      <ArticleBody blocks={blocks} />
+      {page.authors.length > 0 && (
+        <p className="mt-8 text-sm text-muted-foreground">
+          {page.authors.map((author) => author.display_name).join(", ")}
+        </p>
+      )}
+    </ArticleLayout>
   );
 }

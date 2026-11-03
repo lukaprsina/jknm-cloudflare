@@ -5,19 +5,24 @@ const header = (text: string, level: number) => ({ type: "header", data: { text,
 const prepare = (...blocks: { type: string; data: object }[]) => prepare_article({ blocks });
 
 describe("prepare_article headings", () => {
-  test("lists every heading with a stable id; only H2/H3 make a table of contents", () => {
+  test("lists every heading with a stable id", () => {
     const only_title = prepare(header("Naslov", 1), { type: "paragraph", data: { text: "x" } });
     expect(only_title.headings).toEqual([{ id: "naslov", title: "Naslov", depth: 1 }]);
-    expect(only_title.has_toc).toBe(false);
 
     const sectioned = prepare(header("Naslov", 1), header("Čudoviti <b>del</b>", 2));
     expect(sectioned.headings.map((h) => h.id)).toEqual(["naslov", "cudoviti-del"]);
-    expect(sectioned.has_toc).toBe(true);
   });
 
   test("first occurrence keeps the plain id, later duplicates get -1, -2", () => {
     const { headings } = prepare(header("A", 2), header("A", 3), header("a", 3));
     expect(headings.map((h) => h.id)).toEqual(["a", "a-1", "a-2"]);
+  });
+
+  test("an id never repeats, even when a later title slugifies to a suffixed id", () => {
+    const { headings } = prepare(header("A", 2), header("A", 2), header("A 1", 2), header("A", 2));
+    const ids = headings.map((h) => h.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.slice(0, 2)).toEqual(["a", "a-1"]);
   });
 
   test("a title with no slug characters falls back to its block index; an empty one is skipped", () => {
@@ -33,7 +38,7 @@ describe("prepare_article headings", () => {
 
 describe("prepare_article blocks", () => {
   test("no content yields nothing", () => {
-    expect(prepare_article(null)).toEqual({ headings: [], has_toc: false, blocks: [] });
+    expect(prepare_article(null)).toEqual({ headings: [], blocks: [] });
   });
 
   test("lists accept string items and object items", () => {
@@ -101,6 +106,28 @@ describe("prepare_article blocks", () => {
     );
     expect(blocks).toMatchObject([
       { type: "embed", src: "https://www.youtube-nocookie.com/embed/abc" },
+      { type: "unknown", kind: "embed" },
+    ]);
+  });
+
+  test("an embed without a usable size gets 16:9; a YouTube URL that is not an /embed/ page is unknown", () => {
+    const embed = (url: string, size: object) => ({
+      type: "embed",
+      data: { service: "youtube", embed: url, caption: "", ...size },
+    });
+    const ok = "https://www.youtube.com/embed/abc";
+    const { blocks } = prepare(
+      embed(ok, { width: 0, height: 0 }),
+      embed(ok, {}),
+      embed(ok, { width: 580, height: 0 }),
+      embed(ok, { width: 640, height: 360 }),
+      embed("https://www.youtube.com/watch?v=abc", { width: 580, height: 320 }),
+    );
+    expect(blocks).toMatchObject([
+      { type: "embed", width: 16, height: 9 },
+      { type: "embed", width: 16, height: 9 },
+      { type: "embed", width: 16, height: 9 },
+      { type: "embed", width: 640, height: 360 },
       { type: "unknown", kind: "embed" },
     ]);
   });

@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { InlineNode } from "@/lib/inline-html";
 
 /** React reader of the parsed inline HTML. Every link opens in a new tab (the admin's wish). */
@@ -8,7 +9,7 @@ export function Inline({ nodes }: { nodes: InlineNode[] }) {
     const Tag = node.tag;
     const children = <Inline nodes={node.children} />;
     // A link whose href was rejected is just its text.
-    if (Tag === "a" && !node.href) return children;
+    if (Tag === "a" && !node.href) return <Fragment key={index}>{children}</Fragment>;
     return Tag === "a" ? (
       <a key={index} href={node.href} target="_blank" rel="noopener noreferrer">
         {children}

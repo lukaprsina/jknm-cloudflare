@@ -15,9 +15,13 @@ export default defineConfig({
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
     options: { typeAware: true, typeCheck: true },
   },
+  // The `@/` alias of tsconfig, which component tests import through.
+  resolve: process.env.VITEST ? { alias: { "@": import.meta.dirname } } : undefined,
   test: {
     exclude: [...configDefaults.exclude, ".references/**", ".cloudflare/**"],
   },
+  // tsconfig keeps JSX as `preserve` for the framework build; component tests need it compiled.
+  oxc: process.env.VITEST ? { jsx: { runtime: "automatic" } } : undefined,
   // vinext/Cloudflare plugins need workerd; unit tests run in plain Node.
   plugins: lazyPlugins(() =>
     process.env.VITEST

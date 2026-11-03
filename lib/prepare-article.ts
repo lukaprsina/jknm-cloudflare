@@ -44,8 +44,6 @@ export type PreparedBlock =
 export interface PreparedArticle {
   /** Every heading, H1 included; the ids are the anchors of the rendered header blocks. */
   headings: Heading[];
-  /** Only H2/H3 make a table of contents worth showing. */
-  has_toc: boolean;
   blocks: PreparedBlock[];
 }
 
@@ -59,13 +57,18 @@ export interface PreparedArticle {
 export function prepare_article(content: ArticleContentType | null): PreparedArticle {
   const headings: Heading[] = [];
   const seen = new Map<string, number>();
+  const issued = new Set<string>();
 
   function heading_id(title: string, block_index: number) {
     if (!title) return undefined;
     const slug = title_to_slug(title, () => `section-${block_index}`);
-    const occurrence = seen.get(slug) ?? 0;
+    // A later title such as "A 1" may slugify to an id already issued as "A"'s duplicate.
+    let occurrence = seen.get(slug) ?? 0;
+    let id = occurrence === 0 ? slug : `${slug}-${occurrence}`;
+    while (issued.has(id)) id = `${slug}-${++occurrence}`;
     seen.set(slug, occurrence + 1);
-    return occurrence === 0 ? slug : `${slug}-${occurrence}`;
+    issued.add(id);
+    return id;
   }
 
   function prepare_block(
@@ -100,11 +103,13 @@ export function prepare_article(content: ArticleContentType | null): PreparedArt
       case "embed": {
         const src = youtube_embed_src(data.service, data.embed);
         if (!src) break;
+        const sized = positive(data.width) && positive(data.height);
         return {
           type: "embed",
           src,
-          width: data.width,
-          height: data.height,
+          // The size only sets the aspect ratio; without a usable one, assume 16:9.
+          width: sized ? data.width : 16,
+          height: sized ? data.height : 9,
           caption: inline_or_null(data.caption),
         };
       }
@@ -130,8 +135,11 @@ export function prepare_article(content: ArticleContentType | null): PreparedArt
     }
   });
 
-  return { headings, has_toc: headings.some((h) => h.depth === 2 || h.depth === 3), blocks };
+  return { headings, blocks };
 }
+
+const positive = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value > 0;
 
 const inline_or_null = (html: string | undefined) => (html ? parse_inline(html) : null);
 
@@ -157,11 +165,12 @@ function display_size({ width, height }: { width: number; height: number }) {
 
 const YOUTUBE_HOSTS = new Set(["www.youtube.com", "youtube.com", "www.youtube-nocookie.com"]);
 
-/** The privacy-enhanced embed URL, or undefined for anything that is not a YouTube embed. */
+/** The privacy-enhanced embed URL, or undefined for anything that is not a YouTube `/embed/` page. */
 function youtube_embed_src(service: string, embed: string) {
   if (service !== "youtube") return undefined;
   const url = URL.parse(embed);
   if (!url || url.protocol !== "https:" || !YOUTUBE_HOSTS.has(url.hostname)) return undefined;
+  if (!url.pathname.startsWith("/embed/")) return undefined;
   url.hostname = "www.youtube-nocookie.com";
   return url.toString();
 }
