@@ -2,7 +2,7 @@
 
 Domain vocabulary for the JKNM (Jamarski klub Novo mesto) news site: articles, their lifecycle, and the admin who edits them. Vocabulary only. Implementation lives in the code, which is the spec.
 
-- **Article status**: one of `draft` / `published` / `archived` / `deleted`. `archived` covers both "hide a mistake" and "archive something stale". Archived and deleted articles 404 for non-admins. `deleted` is terminal.
+- **Article status**: one of `draft` / `published` / `archived` / `deleted`. `archived` covers both "hide a mistake" and "archive something stale". Archived and deleted articles 404 on public routes, for everyone (ADR-0001); an admin previews them in the editor. `deleted` is terminal.
 - **Standalone draft**: a `draft` with no `supersedes_id`. Never been published; archiving or deleting it acts on itself.
 - **Superseding draft**: a `draft` whose `supersedes_id` points at a `published` or `archived` row (spawned by pencil-to-edit or "restore from archive"). A published source stays live until the draft is published. Archive and delete on a superseding draft act on the **source**; to cancel the revision, **discard** the draft instead.
 - **Discard**: cancel a superseding draft without touching its source. If the source was already retired by unarchiving, discarding puts it back to `archived`.

@@ -18,3 +18,21 @@ export const PUBLIC_AUTHOR_COLUMNS = {
   first_name: true,
   last_name: true,
 } as const;
+
+/** A `PublicAuthor` with the name as the site prints it. */
+export type PublicAuthorView = PublicAuthor & { display_name: string };
+
+/**
+ * The one place that turns an author row into what a public page may show.
+ * Fields are picked by name, so a row carrying extra columns cannot leak them
+ * even if a query forgets to narrow with `PUBLIC_AUTHOR_COLUMNS`.
+ */
+export function to_public_author(author: PublicAuthor): PublicAuthorView {
+  return {
+    id: author.id,
+    author_type: author.author_type,
+    first_name: author.first_name,
+    last_name: author.last_name,
+    display_name: `${author.first_name} ${author.last_name}`,
+  };
+}

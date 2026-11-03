@@ -521,6 +521,16 @@ describe("retitling a published article with a plain save", () => {
     ]);
   });
 
+  test("saving a live article announces it, so the cached public page is refreshed", async () => {
+    const { articles, events } = await setup();
+    const published = await publish_new(articles, "Jama");
+    events.length = 0;
+
+    await retitle(articles, published.id, "Velika jama");
+
+    expect(events).toEqual(["article.live_saved"]);
+  });
+
   test("a draft has no public URL yet, so retitling it mints nothing", async () => {
     const { articles } = await setup();
     const draft = await articles.create({ title: "Jama" }, "admin");
