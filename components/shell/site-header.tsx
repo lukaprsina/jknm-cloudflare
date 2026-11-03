@@ -1,6 +1,7 @@
 import { UsersIcon } from "lucide-react";
 import { CLUB_NAME, INTRANET_URL, SOCIAL_LINKS } from "@/lib/club";
 import { CONTENT_PAGES } from "@/lib/content-pages";
+import { cn } from "@/lib/utils";
 import { SocialIcon } from "../social-icon";
 import { Logo } from "./brand-image";
 import { MiniLogo, HEADER_TOP_ID } from "./mini-logo";
@@ -24,7 +25,7 @@ export function SiteHeader() {
       </div>
 
       <div id={HEADER_TOP_ID} className="hidden h-45.5 border-b py-4 lg:block">
-        <div className={`${gutter} flex h-full`}>
+        <div className={cn(gutter, "flex h-full")}>
           <div className="flex flex-1 items-end gap-4 pb-1">
             {SOCIAL_LINKS.map(({ name, href }) => (
               <a
@@ -52,7 +53,7 @@ export function SiteHeader() {
       </div>
 
       <div className="sticky top-0 z-40 hidden h-(--header-h) items-center border-b bg-background lg:flex">
-        <div className={`${gutter} flex items-center`}>
+        <div className={cn(gutter, "flex items-center")}>
           <div className="flex-1">
             <MiniLogo />
           </div>

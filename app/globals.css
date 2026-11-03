@@ -170,3 +170,9 @@ a {
     --toc-bar-h: 0rem;
   }
 }
+
+/* Matte: overlay scrims stay plain. Unlayered on purpose, so it beats the shadcn
+   components' `backdrop-blur` utility without editing the generated files. */
+[data-slot$="-overlay"] {
+  backdrop-filter: none;
+}

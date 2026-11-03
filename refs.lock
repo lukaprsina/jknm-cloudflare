@@ -8,6 +8,13 @@ ref = "v3.0.1"
 sha = "75d0b10654370597d4cad103c5c825d5acd7d3e1"
 
 [[repo]]
+id = "cn"
+url = "https://github.com/shadcn-ui/cn"
+ref = "HEAD"
+sha = "b6a8dbe5ef67bbcafe70bf8548e640ab34a38206"
+branch = "main"
+
+[[repo]]
 id = "jknm"
 url = "https://github.com/lukaprsina/jknm"
 ref = "HEAD"

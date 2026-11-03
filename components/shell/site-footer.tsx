@@ -1,6 +1,7 @@
 import { MailIcon, PhoneIcon } from "lucide-react";
 import Link from "next/link";
 import { CLUB, SOCIAL_LINKS } from "@/lib/club";
+import { cn } from "@/lib/utils";
 import { SocialIcon } from "../social-icon";
 import { Sponsors } from "./sponsors";
 
@@ -43,7 +44,7 @@ export function SiteFooter() {
               <li className="flex items-center gap-2">
                 <PhoneIcon className="size-5 shrink-0" />
                 <span>
-                  <a href={CLUB.phone.href} className={`whitespace-nowrap ${link}`}>
+                  <a href={CLUB.phone.href} className={cn("whitespace-nowrap", link)}>
                     {CLUB.phone.label}
                   </a>
                   , {CLUB.phone.person}

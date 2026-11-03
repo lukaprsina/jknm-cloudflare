@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 import { Logo } from "./brand-image";
 import { HomeLink } from "./nav-link";
 
@@ -19,7 +20,7 @@ export function MiniLogo() {
   }, []);
 
   return (
-    <HomeLink className={shown ? undefined : "invisible"}>
+    <HomeLink className={cn(!shown && "invisible")}>
       <Logo className="h-8 w-auto" />
     </HomeLink>
   );
