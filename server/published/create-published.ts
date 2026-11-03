@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { excerpt_of } from "../../lib/excerpt";
 import { strip_html_to_text } from "../../lib/inline-html";
 import { to_public_author, type PublicAuthorView } from "../author/public-shape";
 import { find_article_with_relations, found } from "../article/article-rows";
@@ -31,6 +32,7 @@ export interface FeedCard {
   /** The primary slug. */
   slug: string;
   title: string;
+  excerpt: string;
   published_at: string;
   thumbnail: { url: string; width: number; height: number } | null;
 }
@@ -84,7 +86,7 @@ export function create_published({ db }: { db: Db }) {
         ),
         orderBy: [desc(Article.published_at), desc(Article.id)],
         limit: limit + 1,
-        columns: { id: true, title: true, published_at: true },
+        columns: { id: true, title: true, content_json: true, published_at: true },
         extras: (article) => ({
           cursor_at: sql<string>`${article.published_at}::text`.as("cursor_at"),
         }),
@@ -101,6 +103,7 @@ export function create_published({ db }: { db: Db }) {
           id: row.id,
           slug: row.article_slugs[0]!.slug,
           title: strip_html_to_text(row.title),
+          excerpt: excerpt_of(row.content_json),
           published_at: row.published_at!.toISOString(),
           thumbnail: row.thumbnail_media
             ? {
@@ -138,7 +141,7 @@ export function create_published({ db }: { db: Db }) {
         slug: hit.primary,
         page: {
           title: strip_html_to_text(article.title),
-          excerpt: article.excerpt ?? "",
+          excerpt: excerpt_of(article.content_json),
           content: article.content_json,
           published_at: article.published_at?.toISOString() ?? null,
           modified_at: article.updated_at.toISOString(),

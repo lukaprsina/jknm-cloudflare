@@ -169,6 +169,19 @@ describe("feed", () => {
     expect(next_cursor).toBeNull();
   });
 
+  test("cards and pages carry the same teaser, derived from the content", async () => {
+    const ctx = await setup();
+    await publish(ctx, "Jama", [], {
+      blocks: [{ type: "paragraph", data: { text: "Globoka <i>jama</i>." } }],
+    });
+
+    const [card] = (await ctx.published.feed({ limit: 1 })).cards;
+    const found = await ctx.published.by_slug("jama");
+
+    expect(card?.excerpt).toBe("Globoka jama.");
+    expect(found.outcome === "found" && found.page.excerpt).toBe("Globoka jama.");
+  });
+
   test("leaves out drafts, archived and deleted articles and content pages", async () => {
     const ctx = await setup();
     await seed(ctx, { Objavljena: "2026-01-01 10:00+00" });
