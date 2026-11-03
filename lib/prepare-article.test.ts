@@ -105,6 +105,16 @@ describe("prepare_article blocks", () => {
     ]);
   });
 
+  test("a malformed block becomes unknown and the rest of the article still prepares", () => {
+    const { blocks, headings } = prepare(
+      { type: "image", data: {} },
+      { type: "list", data: { style: "ordered" } },
+      header("Jama", 2),
+    );
+    expect(blocks.map((b) => b.type)).toEqual(["unknown", "unknown", "header"]);
+    expect(headings).toEqual([{ id: "jama", title: "Jama", depth: 2 }]);
+  });
+
   test("an unrecognised block type is kept as unknown", () => {
     expect(prepare({ type: "quote", data: {} }).blocks).toEqual([
       { type: "unknown", kind: "quote" },

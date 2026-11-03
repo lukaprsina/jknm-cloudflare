@@ -68,7 +68,10 @@ export function prepare_article(content: ArticleContentType | null): PreparedArt
     return occurrence === 0 ? slug : `${slug}-${occurrence}`;
   }
 
-  const blocks = (content?.blocks ?? []).map((block, index): PreparedBlock => {
+  function prepare_block(
+    block: ArticleContentType["blocks"][number],
+    index: number,
+  ): PreparedBlock {
     const data = block.data as any;
     switch (block.type) {
       case "header": {
@@ -115,6 +118,16 @@ export function prepare_article(content: ArticleContentType | null): PreparedArt
         };
     }
     return { type: "unknown", kind: block.type };
+  }
+
+  // One malformed block must cost that block, not the whole public page.
+  const blocks = (content?.blocks ?? []).map((block, index): PreparedBlock => {
+    try {
+      return prepare_block(block, index);
+    } catch (error) {
+      console.error(`prepare_article: block ${index} (${block.type}) is malformed`, error);
+      return { type: "unknown", kind: block.type };
+    }
   });
 
   return { headings, has_toc: headings.some((h) => h.depth === 2 || h.depth === 3), blocks };
