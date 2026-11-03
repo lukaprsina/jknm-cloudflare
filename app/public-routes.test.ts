@@ -37,7 +37,7 @@ function violations(entry: string): string[] {
     if (seen.has(file)) continue;
     seen.add(file);
     const source = readFileSync(resolve(root, file), "utf8");
-    for (const [, specifier] of source.matchAll(/(?:from|import\()\s*["']([^"']+)["']/g)) {
+    for (const [, specifier] of source.matchAll(/(?:\bfrom|\bimport\(?)\s*["']([^"']+)["']/g)) {
       if (FORBIDDEN.some((name) => specifier === name || specifier.endsWith(`/${name}`)))
         found.push(`${file} imports ${specifier}`);
       const local = resolve_local(file, specifier);
