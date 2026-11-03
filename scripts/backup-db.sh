@@ -4,7 +4,7 @@
 #
 # Usage: scripts/backup-db.sh [env_file]
 #   env_file    defaults to .env.prod-ref (reads only its DATABASE_URL line)
-#   BACKUP_DIR  defaults to ~/backups/jknm (keep it outside the repo: the dump
+#   BACKUP_DIR  defaults to ~/.backups/jknm (keep it outside the repo: the dump
 #               contains session tokens and OAuth tokens)
 #
 # pg_dump sets session-level state, which leaks between clients on Supabase's
@@ -14,7 +14,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="${1:-$repo_root/.env.prod-ref}"
-backup_dir="${BACKUP_DIR:-$HOME/backups/jknm}"
+backup_dir="${BACKUP_DIR:-$HOME/.backups/jknm}"
 
 line="$(grep -m1 '^DATABASE_URL=' "$env_file" || true)"
 [ -n "$line" ] || { echo "DATABASE_URL not found in $env_file" >&2; exit 1; }
