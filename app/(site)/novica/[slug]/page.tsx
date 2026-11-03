@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
 import { ArticleBody } from "@/components/article-body";
 import { ArticleLayout } from "@/components/article-layout";
-import { deployment_origin } from "@/lib/domains";
+import { page_url } from "@/lib/domains";
 import { image_url } from "@/lib/image-url";
 import { article_json_ld, json_ld } from "@/lib/json-ld";
 import { prepare_article } from "@/lib/prepare-article";
-import { not_found_uncached, published_metadata } from "@/lib/published-metadata";
+import { not_found_uncached } from "@/lib/not-found-uncached";
+import { published_metadata } from "@/lib/published-metadata";
 import { get_published } from "@/server/published";
 
 export const revalidate = 3600;
@@ -28,7 +29,7 @@ async function load({ params }: Props) {
   return result;
 }
 
-const article_url = (slug: string) => `${deployment_origin()}/novica/${encodeURIComponent(slug)}`;
+const article_url = (slug: string) => page_url(`/novica/${encodeURIComponent(slug)}`);
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const { slug, page } = await load(props);

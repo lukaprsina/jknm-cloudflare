@@ -1,5 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, test } from "vite-plus/test";
+import { CONTENT_PAGES } from "../../lib/content-pages";
 import { create_articles } from "../article/articles";
 import { Article, ArticleSlug, Author, users } from "../db/schema";
 import { create_test_db } from "../db/test-helpers";
@@ -139,13 +140,25 @@ describe("by_content_page", () => {
     return page;
   }
 
-  test("serves a published content page at its slug, in public shape", async () => {
+  test.each(CONTENT_PAGES)("serves $title at /$slug", async ({ slug, title }) => {
     const ctx = await setup();
-    await publish_content(ctx, "Klub");
+    await publish_content(ctx, title);
 
-    const result = await ctx.published.by_content_page("klub");
+    expect(await ctx.published.by_content_page(slug)).toMatchObject({
+      outcome: "found",
+      page: { title },
+    });
+  });
 
-    expect(result).toMatchObject({ outcome: "found", page: { title: "Klub" } });
+  test("a content page without a primary slug is not found", async () => {
+    const ctx = await setup();
+    const page = await publish_content(ctx, "Klub");
+    await ctx.db
+      .update(ArticleSlug)
+      .set({ is_primary: false })
+      .where(eq(ArticleSlug.article_id, page.id));
+
+    expect(await ctx.published.by_content_page("klub")).toEqual({ outcome: "not_found" });
   });
 
   test("a news article that took the reserved slug is not a content page", async () => {

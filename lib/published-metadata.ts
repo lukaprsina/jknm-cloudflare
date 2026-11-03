@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { connection } from "next/server";
-import { notFound } from "next/navigation";
 import type { PublishedPage } from "@/server/published/create-published";
 import { image_url } from "./image-url";
 
@@ -30,14 +28,4 @@ export function published_metadata(
       ...(page.thumbnail && { images: [image_url(page.thumbnail.url, 1200)] }),
     },
   };
-}
-
-/**
- * Answers 404 for a page the public may not see. The render is made dynamic
- * first, because a dynamic render is never stored, so junk URLs cannot
- * accumulate cache entries.
- */
-export async function not_found_uncached(): Promise<never> {
-  await connection();
-  notFound();
 }

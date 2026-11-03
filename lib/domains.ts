@@ -17,5 +17,8 @@ export function deployment_origin(): string {
   return origin;
 }
 
+/** The absolute URL of a path on this deployment. */
+export const page_url = (path: string) => `${deployment_origin()}${path}`;
+
 /** The club's human-facing address, and the only domain admins sign in from. */
 export const CONTACT_EMAIL = `info@${WORKSPACE_EMAIL_DOMAIN}`;

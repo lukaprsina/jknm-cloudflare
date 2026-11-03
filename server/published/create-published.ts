@@ -176,6 +176,7 @@ export function create_published({ db }: { db: Db }) {
             is_published("content"),
           ),
         );
+      // Null when unpublished between the two queries.
       const page = hit && (await load_page(hit.article_id));
       return page ? { outcome: "found", page } : NOT_FOUND;
     },

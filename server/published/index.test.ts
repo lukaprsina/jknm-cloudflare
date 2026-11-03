@@ -16,8 +16,10 @@ const cache_calls = [...unstable_cache.mock.calls];
 test.each(["published-by-slug", "published-content-page"])(
   "the cached %s lookup carries a tag that publishing invalidates",
   async (key) => {
-    const options = cache_calls.find(([, keys]) => keys[0] === key)?.[2];
+    const call = cache_calls.find(([, keys]) => keys[0] === key);
+    if (!call) throw new Error(`no unstable_cache call keyed ${key}; renamed?`);
+    const options = call[2];
     const invalidated = invalidations_for("article.published").tags as readonly string[];
-    expect(options?.tags?.some((tag) => invalidated.includes(tag))).toBe(true);
+    expect(options.tags?.some((tag) => invalidated.includes(tag))).toBe(true);
   },
 );

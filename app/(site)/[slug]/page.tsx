@@ -2,16 +2,17 @@ import type { Metadata } from "next";
 import { ArticleBody } from "@/components/article-body";
 import { ArticleLayout } from "@/components/article-layout";
 import { CONTENT_PAGES, is_content_page } from "@/lib/content-pages";
-import { deployment_origin } from "@/lib/domains";
+import { page_url } from "@/lib/domains";
 import { prepare_article } from "@/lib/prepare-article";
-import { not_found_uncached, published_metadata } from "@/lib/published-metadata";
+import { not_found_uncached } from "@/lib/not-found-uncached";
+import { published_metadata } from "@/lib/published-metadata";
 import { get_published } from "@/server/published";
 
 export const revalidate = 3600;
-// The five club pages are the only top-level routes, and listing them is also what lets
-// vinext store the responses. It does not prerender them; that only happens with
-// `vinext({ prerender })` or `--prerender-all`, which would query the DB at build.
-// `dynamicParams = false` is not used: on vinext it 404s the listed slugs too.
+// The five club pages are the only top-level routes. Listing them does not prerender
+// them; that only happens with `vinext({ prerender })` or `--prerender-all`, which
+// would query the DB at build. `dynamicParams = false` is not used: on vinext it 404s
+// the listed slugs too (observed in the built Worker), so `load` checks the slug itself.
 export const generateStaticParams = () => CONTENT_PAGES.map(({ slug }) => ({ slug }));
 
 type Props = { params: Promise<{ slug: string }> };
@@ -28,7 +29,7 @@ async function load({ params }: Props) {
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const { slug, page } = await load(props);
-  return published_metadata(page, `${deployment_origin()}/${slug}`, "content");
+  return published_metadata(page, page_url(`/${slug}`), "content");
 }
 
 export default async function ClubPage(props: Props) {
