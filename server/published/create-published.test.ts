@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { describe, expect, test } from "vite-plus/test";
 import { create_articles } from "../article/articles";
 import { Article, ArticleSlug, Author, users } from "../db/schema";
 import { create_test_db } from "../db/test-helpers";
-import { create_published } from "./create-published";
+import { create_published, type FeedCursor } from "./create-published";
 
 async function setup() {
   const db = await create_test_db();
@@ -127,6 +127,99 @@ describe("by_slug", () => {
 
     for (const slug of ["osnutek", "ni-je", "zgodovina", "a%b"]) {
       expect(await ctx.published.by_slug(slug)).toEqual({ outcome: "not_found" });
+    }
+  });
+});
+
+describe("feed", () => {
+  /** Publishes articles and pins their dates (Postgres text, so microseconds are expressible). */
+  async function seed(ctx: Setup, dated: Record<string, string>) {
+    for (const [title, at] of Object.entries(dated)) {
+      const article = await publish(ctx, title);
+      await ctx.db
+        .update(Article)
+        .set({ published_at: sql`${at}::timestamptz` })
+        .where(eq(Article.id, article.id));
+    }
+  }
+
+  /** Follows the cursor to the end; every page must be non-empty and within `limit`. */
+  async function titles_by_page({ published }: Setup, limit: number) {
+    const pages: string[][] = [];
+    let after: FeedCursor | undefined;
+    do {
+      const page = await published.feed({ limit, after });
+      pages.push(page.cards.map((card) => card.title));
+      after = page.next_cursor ?? undefined;
+    } while (after);
+    return pages;
+  }
+
+  test("lists published news newest first, with its primary slug and thumbnail data", async () => {
+    const ctx = await setup();
+    await seed(ctx, { Stara: "2026-01-01 10:00+00", Nova: "2026-02-01 10:00+00" });
+
+    const { cards, next_cursor } = await ctx.published.feed({ limit: 10 });
+
+    expect(cards.map((card) => [card.title, card.slug])).toEqual([
+      ["Nova", "nova"],
+      ["Stara", "stara"],
+    ]);
+    expect(cards[0]).toMatchObject({ published_at: "2026-02-01T10:00:00.000Z", thumbnail: null });
+    expect(next_cursor).toBeNull();
+  });
+
+  test("leaves out drafts, archived and deleted articles and content pages", async () => {
+    const ctx = await setup();
+    await seed(ctx, { Objavljena: "2026-01-01 10:00+00" });
+    await ctx.articles.create({ title: "Osnutek" }, "admin");
+    const archived = await publish(ctx, "Arhivirana");
+    await ctx.articles.archive({ article_id: archived.id });
+    const deleted = await publish(ctx, "Izbrisana");
+    await ctx.articles.delete({ article_id: deleted.id });
+    const page = await publish(ctx, "Zgodovina");
+    await ctx.db.update(Article).set({ article_kind: "content" }).where(eq(Article.id, page.id));
+
+    const { cards } = await ctx.published.feed({ limit: 10 });
+
+    expect(cards.map((card) => card.title)).toEqual(["Objavljena"]);
+  });
+
+  test("is empty when nothing is published", async () => {
+    const ctx = await setup();
+    expect(await ctx.published.feed({ limit: 10 })).toEqual({ cards: [], next_cursor: null });
+  });
+
+  test("has a next page only when more rows remain", async () => {
+    const ctx = await setup();
+    await seed(ctx, {
+      A: "2026-01-01 10:00+00",
+      B: "2026-01-02 10:00+00",
+      C: "2026-01-03 10:00+00",
+    });
+
+    expect((await ctx.published.feed({ limit: 2 })).next_cursor).not.toBeNull();
+    expect((await ctx.published.feed({ limit: 3 })).next_cursor).toBeNull();
+    expect((await ctx.published.feed({ limit: 4 })).next_cursor).toBeNull();
+  });
+
+  test("pages never overlap or skip, across ties and microsecond-apart dates", async () => {
+    const ctx = await setup();
+    await seed(ctx, {
+      Tie1: "2026-01-01 10:00:00+00",
+      Tie2: "2026-01-01 10:00:00+00",
+      Tie3: "2026-01-01 10:00:00+00",
+      Micro1: "2026-01-02 10:00:00.000001+00",
+      Micro2: "2026-01-02 10:00:00.000002+00",
+      Old: "2025-12-31 10:00:00+00",
+    });
+
+    for (const limit of [1, 2, 4]) {
+      const flat = (await titles_by_page(ctx, limit)).flat();
+      expect(flat.slice(0, 2)).toEqual(["Micro2", "Micro1"]);
+      expect(flat.slice(2, 5).toSorted()).toEqual(["Tie1", "Tie2", "Tie3"]);
+      expect(flat[5]).toBe("Old");
+      expect(flat).toHaveLength(6);
     }
   });
 });

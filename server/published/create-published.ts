@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { strip_html_to_text } from "../../lib/inline-html";
 import { to_public_author, type PublicAuthorView } from "../author/public-shape";
@@ -24,6 +24,29 @@ export type SlugResult =
   /** `slug` is the primary one the caller should send the visitor to. */
   | { outcome: "redirect"; slug: string }
   | { outcome: "not_found" };
+
+/** A news article as a homepage card. */
+export interface FeedCard {
+  id: string;
+  /** The primary slug. */
+  slug: string;
+  title: string;
+  published_at: string;
+  thumbnail: { url: string; width: number; height: number } | null;
+}
+
+/** Opaque to callers; plain data so it survives a server action. */
+export interface FeedCursor {
+  /** Postgres text form, so microseconds survive (a `Date` keeps only milliseconds). */
+  published_at: string;
+  id: string;
+}
+
+export interface FeedPage {
+  cards: FeedCard[];
+  /** Pass as `after` for the next page; `null` when this was the last. */
+  next_cursor: FeedCursor | null;
+}
 
 const NOT_FOUND = { outcome: "not_found" } as const;
 
@@ -51,6 +74,47 @@ export function create_published({ db }: { db: Db }) {
     );
 
   return {
+    /** Newest first; publish-date ties are broken by id so pages never overlap or skip. */
+    async feed({ limit, after }: { limit: number; after?: FeedCursor }): Promise<FeedPage> {
+      const rows = await db.query.Article.findMany({
+        where: and(
+          is_published(),
+          after &&
+            sql`(${Article.published_at}, ${Article.id}) < (${after.published_at}::timestamptz, ${after.id}::uuid)`,
+        ),
+        orderBy: [desc(Article.published_at), desc(Article.id)],
+        limit: limit + 1,
+        columns: { id: true, title: true, published_at: true },
+        extras: (article) => ({
+          cursor_at: sql<string>`${article.published_at}::text`.as("cursor_at"),
+        }),
+        with: {
+          article_slugs: { where: eq(ArticleSlug.is_primary, true), columns: { slug: true } },
+          thumbnail_media: { columns: { original: true } },
+        },
+      });
+
+      const page = rows.slice(0, limit);
+      const last = page.at(-1);
+      return {
+        cards: page.map((row) => ({
+          id: row.id,
+          slug: row.article_slugs[0]!.slug,
+          title: strip_html_to_text(row.title),
+          published_at: row.published_at!.toISOString(),
+          thumbnail: row.thumbnail_media
+            ? {
+                url: row.thumbnail_media.original.url,
+                width: row.thumbnail_media.original.width,
+                height: row.thumbnail_media.original.height,
+              }
+            : null,
+        })),
+        next_cursor:
+          rows.length > limit && last ? { published_at: last.cursor_at, id: last.id } : null,
+      };
+    },
+
     /** Visibility is decided before canonicality, so a hidden article's old slug is `not_found`. */
     async by_slug(requested: string): Promise<SlugResult> {
       const primary_slug = alias(ArticleSlug, "primary_slug");
