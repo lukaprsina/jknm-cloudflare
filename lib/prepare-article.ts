@@ -47,6 +47,10 @@ export interface PreparedArticle {
   blocks: PreparedBlock[];
 }
 
+/** An embed dimension only sets an aspect ratio, so it must be a finite number above zero. */
+const is_usable_dimension = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value > 0;
+
 /**
  * Turns stored editor content into what the renderer and the table of
  * contents need: inline HTML parsed once, heading ids assigned once, per-block
@@ -103,7 +107,7 @@ export function prepare_article(content: ArticleContentType | null): PreparedArt
       case "embed": {
         const src = youtube_embed_src(data.service, data.embed);
         if (!src) break;
-        const sized = positive(data.width) && positive(data.height);
+        const sized = is_usable_dimension(data.width) && is_usable_dimension(data.height);
         return {
           type: "embed",
           src,
@@ -138,9 +142,6 @@ export function prepare_article(content: ArticleContentType | null): PreparedArt
   return { headings, blocks };
 }
 
-const positive = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value) && value > 0;
-
 const inline_or_null = (html: string | undefined) => (html ? parse_inline(html) : null);
 
 /** Editor lists store items either as HTML strings (v1) or as `{ content, items }` objects (v2). */
@@ -170,6 +171,7 @@ function youtube_embed_src(service: string, embed: string) {
   if (service !== "youtube") return undefined;
   const url = URL.parse(embed);
   if (!url || url.protocol !== "https:" || !YOUTUBE_HOSTS.has(url.hostname)) return undefined;
+  if (url.username || url.password || url.port) return undefined;
   if (!url.pathname.startsWith("/embed/")) return undefined;
   url.hostname = "www.youtube-nocookie.com";
   return url.toString();

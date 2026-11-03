@@ -20,9 +20,7 @@ describe("prepare_article headings", () => {
 
   test("an id never repeats, even when a later title slugifies to a suffixed id", () => {
     const { headings } = prepare(header("A", 2), header("A", 2), header("A 1", 2), header("A", 2));
-    const ids = headings.map((h) => h.id);
-    expect(new Set(ids).size).toBe(ids.length);
-    expect(ids.slice(0, 2)).toEqual(["a", "a-1"]);
+    expect(headings.map((h) => h.id)).toEqual(["a", "a-1", "a-1-1", "a-2"]);
   });
 
   test("a title with no slug characters falls back to its block index; an empty one is skipped", () => {
@@ -128,6 +126,21 @@ describe("prepare_article blocks", () => {
       { type: "embed", width: 16, height: 9 },
       { type: "embed", width: 16, height: 9 },
       { type: "embed", width: 640, height: 360 },
+      { type: "unknown", kind: "embed" },
+    ]);
+  });
+
+  test("a YouTube embed URL with credentials or a port is unknown", () => {
+    const embed = (url: string) => ({
+      type: "embed",
+      data: { service: "youtube", embed: url, width: 580, height: 320, caption: "" },
+    });
+    const { blocks } = prepare(
+      embed("https://user@www.youtube.com/embed/abc"),
+      embed("https://www.youtube.com:8443/embed/abc"),
+    );
+    expect(blocks).toMatchObject([
+      { type: "unknown", kind: "embed" },
       { type: "unknown", kind: "embed" },
     ]);
   });

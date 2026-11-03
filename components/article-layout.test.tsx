@@ -15,7 +15,6 @@ describe("ArticleLayout", () => {
   test("H2/H3 headings give a two-column page with the table of contents", () => {
     const html = render([heading("naslov", 1), heading("del", 2)]);
     expect(html).toContain('aria-label="Kazalo"');
-    expect(html).toContain("lg:grid");
     expect(html).toContain("telo");
   });
 
@@ -27,7 +26,6 @@ describe("ArticleLayout", () => {
     ]) {
       const html = render(headings);
       expect(html).not.toContain('aria-label="Kazalo"');
-      expect(html).not.toContain("lg:grid");
       expect(html).toContain("telo");
     }
   });

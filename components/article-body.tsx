@@ -70,7 +70,7 @@ function Block({ block, eager }: { block: PreparedBlock; eager: boolean }) {
             src={image_url(block.url, block.width)}
             width={block.width}
             height={block.height}
-            alt={block.caption ? "" : "Slika"}
+            alt=""
             loading={eager ? "eager" : "lazy"}
             className="block h-auto max-w-full"
           />
