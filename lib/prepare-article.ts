@@ -1,5 +1,6 @@
 import type { ArticleContentType } from "@/server/db/schema";
 import { parse_inline, strip_html_to_text, type InlineNode } from "./inline-html";
+import { parse_stored_block, type StoredListItem } from "./stored-block";
 import { title_to_slug } from "./title-to-slug";
 
 export interface Heading {
@@ -79,45 +80,52 @@ export function prepare_article(content: ArticleContentType | null): PreparedArt
     block: ArticleContentType["blocks"][number],
     index: number,
   ): PreparedBlock {
-    const data = block.data as any;
-    switch (block.type) {
+    const stored = parse_stored_block(block);
+    if (!stored) return { type: "unknown", kind: block.type };
+    switch (stored.type) {
       case "header": {
+        const data = stored.data;
         const title = strip_html_to_text(data.text ?? "");
         const id = heading_id(title, index);
         if (id) headings.push({ id, title, depth: data.level });
         return { type: "header", id, depth: data.level, children: parse_inline(data.text ?? "") };
       }
       case "paragraph":
-        return { type: "paragraph", children: parse_inline(data.text ?? "") };
+        return { type: "paragraph", children: parse_inline(stored.data.text ?? "") };
       case "list":
         return {
           type: "list",
-          ordered: data.style === "ordered",
-          items: data.items.map(list_item),
+          ordered: stored.data.style === "ordered",
+          items: stored.data.items.map(list_item),
         };
-      case "image":
+      case "image": {
+        const data = stored.data;
         return {
           type: "image",
           url: data.file.url,
           ...display_size(data.file),
           caption: inline_or_null(data.caption),
         };
+      }
       case "table":
-        return prepare_table(data);
+        return prepare_table(stored.data);
       case "embed": {
+        const data = stored.data;
         const src = youtube_embed_src(data.service, data.embed);
         if (!src) break;
-        const sized = is_usable_dimension(data.width) && is_usable_dimension(data.height);
+        // The size only sets the aspect ratio; without a usable one, assume 16:9.
+        const { width, height } = data;
+        const sized = is_usable_dimension(width) && is_usable_dimension(height);
         return {
           type: "embed",
           src,
-          // The size only sets the aspect ratio; without a usable one, assume 16:9.
-          width: sized ? data.width : 16,
-          height: sized ? data.height : 9,
+          width: sized ? width : 16,
+          height: sized ? height : 9,
           caption: inline_or_null(data.caption),
         };
       }
-      case "attaches":
+      case "attaches": {
+        const data = stored.data;
         return {
           type: "attaches",
           url: data.file.url,
@@ -125,7 +133,9 @@ export function prepare_article(content: ArticleContentType | null): PreparedArt
           extension: data.file.extension ?? "",
           size: data.file.size ?? 0,
         };
+      }
     }
+    // An embed that is not a YouTube /embed/ page.
     return { type: "unknown", kind: block.type };
   }
 
@@ -144,13 +154,7 @@ export function prepare_article(content: ArticleContentType | null): PreparedArt
 
 const inline_or_null = (html: string | undefined) => (html ? parse_inline(html) : null);
 
-/** Editor lists store items either as HTML strings (v1) or as `{ content, items }` objects (v2). */
-interface RawListItem {
-  content: string;
-  items?: (string | RawListItem)[];
-}
-
-function list_item(item: string | RawListItem): ListItem {
+function list_item(item: StoredListItem): ListItem {
   if (typeof item === "string") return { children: parse_inline(item), items: [] };
   return { children: parse_inline(item.content), items: (item.items ?? []).map(list_item) };
 }
