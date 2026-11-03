@@ -48,6 +48,26 @@ for (const c of cases) {
     `${problems.length ? "FAIL" : "ok  "} ${c.path} ${first.status} ${first.cache ?? "-"} -> ${second.cache ?? "-"} ${problems.join("; ")}`,
   );
 }
+// Fonts must be self-hosted: vinext silently falls back to the Google CDN when its
+// build-time download fails, and Workers Builds always re-downloads.
+{
+  const html = await (await fetch(base + "/")).text();
+  const font = html.match(
+    /<link rel="preload" href="(\/_next\/static\/_vinext_fonts\/[^"]+\.woff2)"/,
+  )?.[1];
+  const problems: string[] = [];
+  if (!font) problems.push("no preload of a self-hosted font");
+  if (html.includes("fonts.googleapis.com") || html.includes("fonts.gstatic.com"))
+    problems.push("HTML references the Google font CDN");
+  if (font) {
+    const res = await fetch(base + font);
+    if (res.status !== 200) problems.push(`font ${res.status}`);
+    if (!res.headers.get("cache-control")?.includes("immutable"))
+      problems.push("font not immutable");
+  }
+  if (problems.length) failed += 1;
+  console.log(`${problems.length ? "FAIL" : "ok  "} fonts self-hosted ${problems.join("; ")}`);
+}
 if (failed) {
   console.error(`${failed} failed`);
   process.exit(1);
