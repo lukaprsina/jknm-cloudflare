@@ -5,7 +5,7 @@ import { ArticleBody } from "@/components/article-body";
 import { ArticleToc } from "@/components/article-toc";
 import { deployment_origin } from "@/lib/domains";
 import { image_url } from "@/lib/image-url";
-import { json_ld } from "@/lib/json-ld";
+import { article_json_ld, json_ld } from "@/lib/json-ld";
 import { prepare_article } from "@/lib/prepare-article";
 import { cn } from "@/lib/utils";
 import { get_published } from "@/server/published";
@@ -59,17 +59,11 @@ export default async function Novica(props: Props) {
   const { slug, page } = await load(props);
   const { headings, has_toc, blocks } = prepare_article(page.content);
 
-  const structured_data = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: page.title,
-    description: page.excerpt,
-    url: article_url(slug),
-    datePublished: page.published_at ?? undefined,
-    dateModified: page.modified_at,
-    author: page.authors.map((author) => ({ "@type": "Person", name: author.display_name })),
-    image: page.thumbnail ? image_url(page.thumbnail.url, 1200) : undefined,
-  };
+  const structured_data = article_json_ld(
+    page,
+    article_url(slug),
+    page.thumbnail ? image_url(page.thumbnail.url, 1200) : undefined,
+  );
 
   return (
     // The scroll margin is shared by anchored headings, the sticky column and the scroll-spy.

@@ -8,6 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { image_url } from "@/lib/image-url";
+import type { InlineNode } from "@/lib/inline-html";
 import type { ListItem, PreparedBlock } from "@/lib/prepare-article";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +26,17 @@ function List({ ordered, items }: { ordered: boolean; items: ListItem[] }) {
   );
 }
 
-function Block({ block }: { block: PreparedBlock }) {
+function Caption({ nodes }: { nodes: InlineNode[] | null }) {
+  return (
+    nodes && (
+      <figcaption>
+        <Inline nodes={nodes} />
+      </figcaption>
+    )
+  );
+}
+
+function Block({ block, eager }: { block: PreparedBlock; eager: boolean }) {
   switch (block.type) {
     case "header": {
       const Tag = block.depth === 1 ? "h1" : block.depth === 2 ? "h2" : "h3";
@@ -60,14 +71,10 @@ function Block({ block }: { block: PreparedBlock }) {
             width={block.width}
             height={block.height}
             alt={block.caption ? "" : "Slika"}
-            loading="lazy"
+            loading={eager ? "eager" : "lazy"}
             className="block h-auto max-w-full"
           />
-          {block.caption && (
-            <figcaption>
-              <Inline nodes={block.caption} />
-            </figcaption>
-          )}
+          <Caption nodes={block.caption} />
         </figure>
       );
     case "table":
@@ -121,11 +128,7 @@ function Block({ block }: { block: PreparedBlock }) {
             style={{ aspectRatio: `${block.width} / ${block.height}` }}
             className="h-auto w-full max-w-full"
           />
-          {block.caption && (
-            <figcaption>
-              <Inline nodes={block.caption} />
-            </figcaption>
-          )}
+          <Caption nodes={block.caption} />
         </figure>
       );
     case "attaches":
@@ -149,5 +152,9 @@ function Block({ block }: { block: PreparedBlock }) {
 
 /** The article's blocks as markup. A server component: no client JS ships for the body itself. */
 export function ArticleBody({ blocks }: { blocks: PreparedBlock[] }) {
-  return blocks.map((block, index) => <Block key={index} block={block} />);
+  // The first image is usually above the fold; lazy-loading it would delay the largest paint.
+  const first_image = blocks.findIndex((block) => block.type === "image");
+  return blocks.map((block, index) => (
+    <Block key={index} block={block} eager={index === first_image} />
+  ));
 }

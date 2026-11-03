@@ -117,18 +117,20 @@ export function prepare_article(content: ArticleContentType | null): PreparedArt
     return { type: "unknown", kind: block.type };
   });
 
-  return { headings, has_toc: headings.some((h) => h.depth > 1), blocks };
+  return { headings, has_toc: headings.some((h) => h.depth === 2 || h.depth === 3), blocks };
 }
 
 const inline_or_null = (html: string | undefined) => (html ? parse_inline(html) : null);
 
 /** Editor lists store items either as HTML strings (v1) or as `{ content, items }` objects (v2). */
-function list_item(item: string | { content: string; items?: unknown[] }): ListItem {
+interface RawListItem {
+  content: string;
+  items?: (string | RawListItem)[];
+}
+
+function list_item(item: string | RawListItem): ListItem {
   if (typeof item === "string") return { children: parse_inline(item), items: [] };
-  return {
-    children: parse_inline(item.content),
-    items: (item.items ?? []).map(list_item as never),
-  };
+  return { children: parse_inline(item.content), items: (item.items ?? []).map(list_item) };
 }
 
 // Since 2008 every image came from the old site at ~480px, so small ones are

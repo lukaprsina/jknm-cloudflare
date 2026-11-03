@@ -50,7 +50,7 @@ export function ArticleToc({ headings }: { headings: Heading[] }) {
 
   return (
     <>
-      <div className="sticky top-0 z-10 border-b bg-background lg:hidden">
+      <div className="sticky top-0 z-10 -mx-4 border-b bg-background lg:hidden">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm">
             <span className="truncate">{current?.title ?? "Kazalo"}</span>

@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 /**
  * The id of the heading the reader is in: the last one whose top has passed
  * the anchor offset (the same `scroll-margin-top` the headings are given), or
- * the first heading before any has.
+ * the first heading before any has. At the bottom of the page the last heading wins,
+ * since a short final section could never reach the offset.
  */
 export function use_active_headings(ids: string[]) {
   const [active, setActive] = useState(ids[0]);
