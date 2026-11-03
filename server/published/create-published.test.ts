@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vite-plus/test";
 import { create_articles } from "../article/articles";
-import { Article, Author, users } from "../db/schema";
+import { Article, ArticleSlug, Author, users } from "../db/schema";
 import { create_test_db } from "../db/test-helpers";
 import { create_published } from "./create-published";
 
@@ -98,6 +98,17 @@ describe("by_slug", () => {
     for (const slug of ["jama", "velika-jama", "brezno"]) {
       expect(await ctx.published.by_slug(slug)).toEqual({ outcome: "not_found" });
     }
+  });
+
+  test("a published article without a primary slug is not found", async () => {
+    const ctx = await setup();
+    const article = await publish(ctx, "Jama");
+    await ctx.db
+      .update(ArticleSlug)
+      .set({ is_primary: false })
+      .where(eq(ArticleSlug.article_id, article.id));
+
+    expect(await ctx.published.by_slug("jama")).toEqual({ outcome: "not_found" });
   });
 
   test("a draft's slug-less article, an unknown slug and a content page are not found", async () => {

@@ -22,6 +22,10 @@ const cached_by_slug = unstable_cache(
   },
   ["published-by-slug"],
   // The window is a safety net; the `article` tag is the refresh mechanism.
+  // Load-bearing even though the response store also holds the page: vinext
+  // copies the tags of every `unstable_cache` call onto the page's stored
+  // response, so this is the only way `updateTag("article")` reaches
+  // `/novica/<slug>`. Removing it silently stops article pages refreshing.
   { tags: ["article"] satisfies CacheTag[], revalidate: 3600 },
 );
 

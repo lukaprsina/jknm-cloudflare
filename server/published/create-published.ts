@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { PublicAuthor } from "../author/public-shape";
+import { to_public_author, type PublicAuthorView } from "../author/public-shape";
 import { find_article_with_relations } from "../article/article-rows";
 import type { Db } from "../db";
 import { Article, ArticleSlug, type ArticleContentType } from "../db/schema";
@@ -11,7 +11,7 @@ export interface PublishedPage {
   content: ArticleContentType | null;
   /** ISO date; null only for rows that were never dated. */
   published_at: string | null;
-  authors: (PublicAuthor & { display_name: string })[];
+  authors: PublicAuthorView[];
   thumbnail: { url: string; width: number; height: number } | null;
 }
 
@@ -55,10 +55,7 @@ export function create_published({ db }: { db: Db }) {
           excerpt: article.excerpt ?? "",
           content: article.content_json,
           published_at: article.published_at?.toISOString() ?? null,
-          authors: article.articles_to_authors.map(({ author }) => ({
-            ...author,
-            display_name: `${author.first_name} ${author.last_name}`,
-          })),
+          authors: article.articles_to_authors.map(({ author }) => to_public_author(author)),
           thumbnail: original
             ? { url: original.url, width: original.width, height: original.height }
             : null,
