@@ -2,6 +2,7 @@ import { relations, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -269,6 +270,11 @@ export const Article = pgTable(
     status_published_year_idx: index("articles_status_published_year_idx").on(
       articles.status,
       articles.published_year,
+    ),
+    /** Feed order and the card date rely on this; drafts are the only undated rows. */
+    published_has_date: check(
+      "published_has_date",
+      sql`${articles.status} <> 'published' OR ${articles.published_at} IS NOT NULL`,
     ),
   }),
 );
