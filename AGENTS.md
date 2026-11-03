@@ -47,6 +47,7 @@ Source and docs for some dependencies are checked out read-only in `.references/
 ```text
 [jknm @ main 89d48c2] The repo currently powering www.jknm.si (Next.js on Vercel), we are migrating to this project, Vinext on Cloudflare.
 [better-result @ v3.0.1 75d0b10] Packages: better-result.
+[cn @ main b6a8dbe] Fast, small, compiled class-name merging for Tailwind CSS. Drop-in replacement for clsx + tailwind-merge. Packages: cn. Start: README.md.
 ```
 
 <!-- END:refs -->

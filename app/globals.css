@@ -6,10 +6,6 @@
 
 :root {
   color-scheme: light;
-  background: #f8fafc;
-  color: #111827;
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -34,6 +30,11 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
+  /* The one accent: Tailwind blue-800. Not `--accent`, which is shadcn's neutral hover surface. */
+  --brand: oklch(0.424 0.199 265.638);
+  /* The footer keeps the old site's teal. */
+  --footer: #16435d;
+  --footer-deep: #071923;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -55,6 +56,9 @@ a {
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
+  --color-brand: var(--brand);
+  --color-footer: var(--footer);
+  --color-footer-deep: var(--footer-deep);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -138,6 +142,8 @@ a {
   }
   html {
     @apply font-sans;
+    /* The scrollbar appearing on long pages must not shift the centered header. */
+    scrollbar-gutter: stable;
   }
 }
 
@@ -148,7 +154,25 @@ a {
 }
 
 :root {
+  /* Sticky chrome heights: the mobile bar (the nav row from `lg`) and the article's
+     mobile table-of-contents bar, which sticks right under it. */
+  --header-h: 3.5rem;
+  --toc-bar-h: 2.75rem;
   /* The anchor offset shared by article headings (scroll-margin-top), the sticky
-     table of contents and its scroll-spy (use-active-headings.ts). */
-  --article-scroll-margin: 4.5rem;
+     table of contents and its scroll-spy (use-active-headings.ts): clear the sticky
+     chrome plus some air. */
+  --article-scroll-margin: calc(var(--header-h) + var(--toc-bar-h) + 1rem);
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --header-h: 4rem;
+    --toc-bar-h: 0rem;
+  }
+}
+
+/* Matte: overlay scrims stay plain. Unlayered on purpose, so it beats the shadcn
+   components' `backdrop-blur` utility without editing the generated files. */
+[data-slot$="-overlay"] {
+  backdrop-filter: none;
 }

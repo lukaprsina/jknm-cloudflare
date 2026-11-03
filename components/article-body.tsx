@@ -29,7 +29,7 @@ function List({ ordered, items }: { ordered: boolean; items: ListItem[] }) {
 function Caption({ nodes }: { nodes: InlineNode[] | null }) {
   return (
     nodes && (
-      <figcaption>
+      <figcaption className="text-brand">
         <Inline nodes={nodes} />
       </figcaption>
     )
@@ -44,7 +44,7 @@ function Block({ block, eager }: { block: PreparedBlock; eager: boolean }) {
         <Tag
           id={block.id}
           className={cn(
-            "scroll-mt-(--article-scroll-margin) font-semibold",
+            "scroll-mt-(--article-scroll-margin) font-semibold text-brand",
             block.depth === 1 && "text-3xl",
             block.depth === 2 && "mt-10 mb-2 text-2xl",
             block.depth === 3 && "mt-8 mb-2 text-xl",

@@ -7,3 +7,11 @@ url = "https://github.com/dmmulroy/better-result"
 ref = "v3.0.1"
 origin = "npm:better-result"
 packages = ["better-result"]
+
+[repos.cn]
+url = "https://github.com/shadcn-ui/cn"
+description = "Fast, small, compiled class-name merging for Tailwind CSS. Drop-in replacement for clsx + tailwind-merge."
+origin = "npm:cn"
+paths = ["docs", "packages/cn"]
+packages = ["cn"]
+start = ["README.md"]

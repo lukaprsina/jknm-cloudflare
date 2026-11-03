@@ -20,14 +20,16 @@ export function ArticleLayout({
 }) {
   const has_toc = headings.some((heading) => heading.depth === 2 || heading.depth === 3);
   return (
-    <main
+    <div
       className={cn(
-        "mx-auto px-4 pb-10",
+        "mx-auto px-4",
         has_toc ? "max-w-5xl lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-10" : "max-w-3xl",
       )}
     >
       {has_toc && <ArticleToc headings={headings} />}
-      <article className="pt-6 lg:col-start-1 lg:row-start-1 [&_a]:underline">{children}</article>
-    </main>
+      <article className="pt-6 lg:col-start-1 lg:row-start-1 [&_a]:text-brand [&_a]:underline">
+        {children}
+      </article>
+    </div>
   );
 }

@@ -17,6 +17,27 @@ export default defineConfig({
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
     options: { typeAware: true, typeCheck: true },
+    overrides: [
+      {
+        // ADR-0001: a session read makes a render dynamic and uncacheable. This is the fast
+        // per-file signal; app/public-routes.test.ts checks the whole import graph.
+        files: ["app/(site)/**", "components/shell/**"],
+        rules: {
+          "no-restricted-imports": [
+            "error",
+            {
+              paths: [
+                {
+                  name: "@/server/auth/session",
+                  message: "Public routes are session-free (ADR-0001).",
+                },
+                { name: "next/headers", message: "Public routes are session-free (ADR-0001)." },
+              ],
+            },
+          ],
+        },
+      },
+    ],
   },
   test: {
     exclude: [...configDefaults.exclude, ".references/**", ".cloudflare/**"],
