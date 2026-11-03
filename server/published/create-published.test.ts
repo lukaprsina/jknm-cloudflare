@@ -131,6 +131,52 @@ describe("by_slug", () => {
   });
 });
 
+describe("by_content_page", () => {
+  /** Publishes an article titled `title` and turns it into a content page. */
+  async function publish_content(ctx: Setup, title: string) {
+    const page = await publish(ctx, title);
+    await ctx.db.update(Article).set({ article_kind: "content" }).where(eq(Article.id, page.id));
+    return page;
+  }
+
+  test("serves a published content page at its slug, in public shape", async () => {
+    const ctx = await setup();
+    await publish_content(ctx, "Klub");
+
+    const result = await ctx.published.by_content_page("klub");
+
+    expect(result).toMatchObject({ outcome: "found", page: { title: "Klub" } });
+  });
+
+  test("a news article that took the reserved slug is not a content page", async () => {
+    const ctx = await setup();
+    await publish(ctx, "Klub");
+
+    expect(await ctx.published.by_content_page("klub")).toEqual({ outcome: "not_found" });
+  });
+
+  test("a hidden content page is not found", async () => {
+    const ctx = await setup();
+    await ctx.articles.create({ title: "Varstvo" }, "admin");
+    const archived = await publish_content(ctx, "Klub");
+    await ctx.articles.archive({ article_id: archived.id });
+    const deleted = await publish_content(ctx, "Zgodovina");
+    await ctx.articles.delete({ article_id: deleted.id });
+
+    for (const slug of ["varstvo", "klub", "zgodovina"]) {
+      expect(await ctx.published.by_content_page(slug)).toEqual({ outcome: "not_found" });
+    }
+  });
+
+  test("an alias of a content page is not found, never redirected", async () => {
+    const ctx = await setup();
+    const page = await publish_content(ctx, "Klub");
+    await ctx.db.insert(ArticleSlug).values({ article_id: page.id, slug: "stari-klub" });
+
+    expect(await ctx.published.by_content_page("stari-klub")).toEqual({ outcome: "not_found" });
+  });
+});
+
 describe("feed", () => {
   /** Publishes articles and pins their dates (Postgres text, so microseconds are expressible). */
   async function seed(ctx: Setup, dated: Record<string, string>) {
