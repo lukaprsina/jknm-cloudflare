@@ -56,7 +56,10 @@ export function ArticleToc({ headings }: { headings: Heading[] }) {
             <span className="truncate">{current?.title ?? "Kazalo"}</span>
             <ChevronDownIcon className="size-4 shrink-0" />
           </PopoverTrigger>
-          <PopoverContent className="max-h-[70vh] w-(--anchor-width) overflow-y-auto">
+          <PopoverContent
+            positionMethod="fixed"
+            className="max-h-[70vh] w-(--anchor-width) overflow-y-auto"
+          >
             <Entries headings={sections} active={active} onPick={() => setOpen(false)} />
           </PopoverContent>
         </Popover>
