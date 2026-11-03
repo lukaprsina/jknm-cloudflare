@@ -25,7 +25,7 @@ export function found<T>(value: T | undefined | null, what = "Article"): T {
  * Authors are column-narrowed to the public allowlist so email and google ids
  * can never cross a server-to-client boundary from here.
  */
-const ARTICLE_RELATIONS = {
+export const ARTICLE_RELATIONS = {
   articles_to_authors: {
     with: { author: { columns: PUBLIC_AUTHOR_COLUMNS } },
     orderBy: asc(ArticlesToAuthors.order),

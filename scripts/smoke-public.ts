@@ -48,6 +48,25 @@ for (const c of cases) {
     `${problems.length ? "FAIL" : "ok  "} ${c.path} ${first.status} ${first.cache ?? "-"} -> ${second.cache ?? "-"} ${problems.join("; ")}`,
   );
 }
+// The homepage: stored, newest first (filler-0 and filler-1 tie on the date), and paged.
+{
+  const first = await get("/");
+  const second = await get("/");
+  const html = await (await fetch(base + "/")).text();
+  const slugs = [...html.matchAll(/href="\/novica\/([^"]+)"/g)].map((m) => m[1]);
+  const problems: string[] = [];
+  if (second.cache !== "HIT") problems.push(`second request not HIT (${second.cache})`);
+  if (slugs.length !== 13) problems.push(`${slugs.length} cards, expected 13`);
+  if (!slugs.slice(0, 2).every((slug) => /^filler-[01]$/.test(slug ?? "")))
+    problems.push(`not newest first: ${slugs.slice(0, 2).join(",")}`);
+  if (slugs.some((slug) => /draft|archived|deleted|content/.test(slug ?? "")))
+    problems.push("a hidden article is listed");
+  if (!html.includes("Več novic")) problems.push("no load-more button");
+  if (problems.length) failed += 1;
+  console.log(
+    `${problems.length ? "FAIL" : "ok  "} / ${first.status} ${first.cache ?? "-"} -> ${second.cache ?? "-"} ${problems.join("; ")}`,
+  );
+}
 // Fonts must be self-hosted: vinext silently falls back to the Google CDN when its
 // build-time download fails, and Workers Builds always re-downloads.
 {

@@ -20,6 +20,8 @@ type Seed = {
   title: string;
   status: "draft" | "published" | "archived" | "deleted";
   kind?: "article" | "content";
+  /** Defaults to a few days ago, older than every filler, so the feed order is fixed. */
+  published_at?: Date;
   slugs: { slug: string; is_primary: boolean }[];
 };
 const seeds: Seed[] = [
@@ -43,6 +45,17 @@ const seeds: Seed[] = [
   },
 ];
 
+// Enough dated news for the homepage feed to span pages (13, then 12 each), including
+// a tie on the publish date so the id tiebreak is exercised. Filler 0 is the newest.
+const DAY = 86_400_000;
+const filler: Seed[] = Array.from({ length: 24 }, (_, i) => ({
+  title: `Filler ${i}`,
+  status: "published",
+  slugs: [{ slug: `filler-${i}`, is_primary: true }],
+  published_at: new Date(Date.UTC(2026, 0, 1) + (24 - (i === 1 ? 0 : i)) * DAY),
+}));
+seeds.push(...filler);
+
 await db.delete(schema.ArticleSlug);
 await db.delete(schema.Article);
 for (const s of seeds) {
@@ -52,7 +65,7 @@ for (const s of seeds) {
       title: s.title,
       status: s.status,
       article_kind: s.kind ?? "article",
-      published_at: new Date(),
+      published_at: s.published_at ?? new Date(Date.UTC(2025, 0, 1)),
       updated_at: new Date(),
     })
     .returning();

@@ -1,7 +1,9 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { excerpt_of } from "../../lib/excerpt";
 import { strip_html_to_text } from "../../lib/inline-html";
 import { to_public_author, type PublicAuthorView } from "../author/public-shape";
-import { find_article_with_relations } from "../article/article-rows";
+import { ARTICLE_RELATIONS, find_article_with_relations } from "../article/article-rows";
 import type { Db } from "../db";
 import { Article, ArticleSlug, type ArticleContentType } from "../db/schema";
 
@@ -24,38 +26,127 @@ export type SlugResult =
   | { outcome: "redirect"; slug: string }
   | { outcome: "not_found" };
 
+/** A news article as a homepage card. */
+export interface FeedCard {
+  id: string;
+  /** The primary slug. */
+  slug: string;
+  title: string;
+  excerpt: string;
+  published_at: string;
+  authors: PublicAuthorView[];
+  thumbnail: { url: string; width: number; height: number } | null;
+}
+
+/** Opaque to callers; plain data so it survives a server action. */
+export interface FeedCursor {
+  /** Postgres text form, so microseconds survive (a `Date` keeps only milliseconds). */
+  published_at: string;
+  id: string;
+}
+
+export interface FeedPage {
+  cards: FeedCard[];
+  /** Pass as `after` for the next page; `null` when this was the last. */
+  next_cursor: FeedCursor | null;
+}
+
 const NOT_FOUND = { outcome: "not_found" } as const;
 
 /**
  * Everything the public may see of the articles, and under which URL. The one
- * place that decides visibility: a `published` news article, nothing else, for
- * everyone (ADR-0001).
+ * place that decides visibility: a `published` news article that has a primary
+ * slug, nothing else, for everyone (ADR-0001).
  */
 export function create_published({ db }: { db: Db }) {
+  // Uncorrelated on purpose: drizzle's relational `where` rewrites column
+  // references to the root alias, which would break a correlated EXISTS.
+  // A function, not a value: the ambient `db` may only be touched inside a query.
+  const is_published = () =>
+    and(
+      eq(Article.status, "published"),
+      // Content pages live at their own routes; serving them here too would duplicate them.
+      eq(Article.article_kind, "article"),
+      inArray(
+        Article.id,
+        db
+          .select({ id: ArticleSlug.article_id })
+          .from(ArticleSlug)
+          .where(eq(ArticleSlug.is_primary, true)),
+      ),
+    );
+
   return {
+    /** Newest first; publish-date ties are broken by id so pages never overlap or skip. */
+    async feed({ limit, after }: { limit: number; after?: FeedCursor }): Promise<FeedPage> {
+      const rows = await db.query.Article.findMany({
+        where: and(
+          is_published(),
+          after &&
+            sql`(${Article.published_at}, ${Article.id}) < (${after.published_at}::timestamptz, ${after.id}::uuid)`,
+        ),
+        orderBy: [desc(Article.published_at), desc(Article.id)],
+        limit: limit + 1,
+        columns: { id: true, title: true, content_json: true, published_at: true },
+        extras: (article) => ({
+          cursor_at: sql<string>`${article.published_at}::text`.as("cursor_at"),
+        }),
+        with: {
+          article_slugs: { where: eq(ArticleSlug.is_primary, true), columns: { slug: true } },
+          articles_to_authors: ARTICLE_RELATIONS.articles_to_authors,
+          thumbnail_media: { columns: { original: true } },
+        },
+      });
+
+      const page = rows.slice(0, limit);
+      const last = page.at(-1);
+      return {
+        cards: page.map((row) => ({
+          id: row.id,
+          slug: row.article_slugs[0]!.slug,
+          title: strip_html_to_text(row.title),
+          excerpt: excerpt_of(row.content_json),
+          published_at: row.published_at!.toISOString(),
+          authors: row.articles_to_authors.map(({ author }) => to_public_author(author)),
+          thumbnail: row.thumbnail_media
+            ? {
+                url: row.thumbnail_media.original.url,
+                width: row.thumbnail_media.original.width,
+                height: row.thumbnail_media.original.height,
+              }
+            : null,
+        })),
+        next_cursor:
+          rows.length > limit && last ? { published_at: last.cursor_at, id: last.id } : null,
+      };
+    },
+
     /** Visibility is decided before canonicality, so a hidden article's old slug is `not_found`. */
     async by_slug(requested: string): Promise<SlugResult> {
-      const slug_row = await db.query.ArticleSlug.findFirst({
-        where: eq(ArticleSlug.slug, requested),
-        columns: { article_id: true },
-      });
-      if (!slug_row) return NOT_FOUND;
+      const primary_slug = alias(ArticleSlug, "primary_slug");
+      const [hit] = await db
+        .select({ article_id: Article.id, primary: primary_slug.slug })
+        .from(ArticleSlug)
+        .innerJoin(Article, eq(Article.id, ArticleSlug.article_id))
+        .innerJoin(
+          primary_slug,
+          and(eq(primary_slug.article_id, Article.id), eq(primary_slug.is_primary, true)),
+        )
+        .where(and(eq(ArticleSlug.slug, requested), is_published()));
+      if (!hit) return NOT_FOUND;
+      if (hit.primary !== requested) return { outcome: "redirect", slug: hit.primary };
 
-      const article = await find_article_with_relations(db, eq(Article.id, slug_row.article_id));
-      // Content pages live at their own routes; serving them here too would duplicate them.
-      if (article?.status !== "published" || article.article_kind !== "article") return NOT_FOUND;
-
-      const primary = article.article_slugs.find((slug) => slug.is_primary)?.slug;
-      if (!primary) return NOT_FOUND;
-      if (primary !== requested) return { outcome: "redirect", slug: primary };
-
+      // Only a served article pays for the full load; junk slugs stop above.
+      const article = await find_article_with_relations(db, eq(Article.id, hit.article_id));
+      // Unpublished between the two queries.
+      if (!article) return NOT_FOUND;
       const original = article.thumbnail_media?.original;
       return {
         outcome: "found",
-        slug: primary,
+        slug: hit.primary,
         page: {
           title: strip_html_to_text(article.title),
-          excerpt: article.excerpt ?? "",
+          excerpt: excerpt_of(article.content_json),
           content: article.content_json,
           published_at: article.published_at?.toISOString() ?? null,
           modified_at: article.updated_at.toISOString(),
