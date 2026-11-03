@@ -20,9 +20,10 @@ export function use_active_headings(ids: string[]) {
       frame = 0;
       const visible = elements.filter((element) => element.getClientRects().length > 0);
       const offset = Number.parseFloat(getComputedStyle(elements[0]).scrollMarginTop) || 0;
-      const current = visible.findLast(
-        (element) => element.getBoundingClientRect().top <= offset + 1,
-      );
+      const at_bottom = innerHeight + scrollY >= document.documentElement.scrollHeight - 2;
+      const current = at_bottom
+        ? visible.at(-1)
+        : visible.findLast((element) => element.getBoundingClientRect().top <= offset + 1);
       setActive((current ?? visible[0] ?? elements[0]).id);
     };
     const schedule = () => {
