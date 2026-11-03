@@ -40,6 +40,9 @@ export function FeedCard({ card, featured = false }: { card: Card; featured?: bo
             {card.title}
           </Link>
         </h2>
+        {card.authors.length > 0 && (
+          <p className="text-sm">{card.authors.map((author) => author.display_name).join(", ")}</p>
+        )}
         {card.excerpt && <p className="line-clamp-4 text-muted-foreground">{card.excerpt}</p>}
       </div>
     </article>

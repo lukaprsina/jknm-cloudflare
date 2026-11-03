@@ -182,6 +182,22 @@ describe("feed", () => {
     expect(found.outcome === "found" && found.page.excerpt).toBe("Globoka jama.");
   });
 
+  test("cards carry the authors in byline order, in public shape", async () => {
+    const ctx = await setup();
+    const authors = await ctx.db
+      .insert(Author)
+      .values([
+        { author_type: "guest", first_name: "Ana", last_name: "Novak" },
+        { author_type: "guest", first_name: "Bor", last_name: "Zupan" },
+      ])
+      .returning();
+    await publish(ctx, "Jama", authors.map((author) => author.id).reverse());
+
+    const [card] = (await ctx.published.feed({ limit: 1 })).cards;
+
+    expect(card?.authors.map((author) => author.display_name)).toEqual(["Bor Zupan", "Ana Novak"]);
+  });
+
   test("leaves out drafts, archived and deleted articles and content pages", async () => {
     const ctx = await setup();
     await seed(ctx, { Objavljena: "2026-01-01 10:00+00" });

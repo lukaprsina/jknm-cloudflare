@@ -46,12 +46,12 @@ export const NEXT_PAGE_SIZE = 12;
 /**
  * Only the first page is cached: it is what `/` renders. A later page is keyed
  * by a client-supplied cursor, so caching it would let visitors grow the cache.
- * The cards carry no author data, so only the feed tag refreshes them.
+ * Cards carry author names, so a rename must reach them: hence `authors`.
  */
 const first_page = unstable_cache(
   () => published.feed({ limit: FIRST_PAGE_SIZE }),
   ["published-feed-first-page"],
-  { tags: ["homepage-feed"] satisfies CacheTag[], revalidate: 3600 },
+  { tags: ["homepage-feed", "authors"] satisfies CacheTag[], revalidate: 3600 },
 );
 
 const next_page = (after: FeedCursor) => published.feed({ limit: NEXT_PAGE_SIZE, after });

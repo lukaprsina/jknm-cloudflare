@@ -3,7 +3,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { excerpt_of } from "../../lib/excerpt";
 import { strip_html_to_text } from "../../lib/inline-html";
 import { to_public_author, type PublicAuthorView } from "../author/public-shape";
-import { find_article_with_relations, found } from "../article/article-rows";
+import { ARTICLE_RELATIONS, find_article_with_relations } from "../article/article-rows";
 import type { Db } from "../db";
 import { Article, ArticleSlug, type ArticleContentType } from "../db/schema";
 
@@ -34,6 +34,7 @@ export interface FeedCard {
   title: string;
   excerpt: string;
   published_at: string;
+  authors: PublicAuthorView[];
   thumbnail: { url: string; width: number; height: number } | null;
 }
 
@@ -92,6 +93,7 @@ export function create_published({ db }: { db: Db }) {
         }),
         with: {
           article_slugs: { where: eq(ArticleSlug.is_primary, true), columns: { slug: true } },
+          articles_to_authors: ARTICLE_RELATIONS.articles_to_authors,
           thumbnail_media: { columns: { original: true } },
         },
       });
@@ -105,6 +107,7 @@ export function create_published({ db }: { db: Db }) {
           title: strip_html_to_text(row.title),
           excerpt: excerpt_of(row.content_json),
           published_at: row.published_at!.toISOString(),
+          authors: row.articles_to_authors.map(({ author }) => to_public_author(author)),
           thumbnail: row.thumbnail_media
             ? {
                 url: row.thumbnail_media.original.url,
@@ -134,7 +137,9 @@ export function create_published({ db }: { db: Db }) {
       if (hit.primary !== requested) return { outcome: "redirect", slug: hit.primary };
 
       // Only a served article pays for the full load; junk slugs stop above.
-      const article = found(await find_article_with_relations(db, eq(Article.id, hit.article_id)));
+      const article = await find_article_with_relations(db, eq(Article.id, hit.article_id));
+      // Unpublished between the two queries.
+      if (!article) return NOT_FOUND;
       const original = article.thumbnail_media?.original;
       return {
         outcome: "found",
