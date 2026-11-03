@@ -7,6 +7,8 @@ export function Inline({ nodes }: { nodes: InlineNode[] }) {
     if (node.tag === "br") return <br key={index} />;
     const Tag = node.tag;
     const children = <Inline nodes={node.children} />;
+    // A link whose href was rejected is just its text.
+    if (Tag === "a" && !node.href) return children;
     return Tag === "a" ? (
       <a key={index} href={node.href} target="_blank" rel="noopener noreferrer">
         {children}

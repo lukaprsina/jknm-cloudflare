@@ -81,9 +81,11 @@ export default async function Novica(props: Props) {
       {has_toc && <ArticleToc headings={headings} />}
       <article className="pt-6 lg:col-start-1 lg:row-start-1 [&_a]:underline">
         <ArticleBody blocks={blocks} />
-        <p className="mt-8 text-sm text-muted-foreground">
-          {page.authors.map((author) => author.display_name).join(", ")}
-        </p>
+        {page.authors.length > 0 && (
+          <p className="mt-8 text-sm text-muted-foreground">
+            {page.authors.map((author) => author.display_name).join(", ")}
+          </p>
+        )}
       </article>
     </main>
   );
