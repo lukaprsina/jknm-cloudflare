@@ -182,6 +182,7 @@ Diffs are original (first add) vs HEAD, after Prettier normalization, with impor
 - New `tableHeadVariants` and `tableCellVariants` (cva) with a `variant` prop: `default` (original shadcn look), `dense` (admin data) and `article` (bordered cells, muted header background, for prose tables).
 - `TableRow` loses `hover:bg-muted/50`; `TableFooter` uses `bg-muted` instead of `bg-muted/50`.
 - Later commits: `71f76b6` feat: add editorjs-table submodule; update ContactForm and ContactPage styles; enhance table component styling; `9144e32` refactor: remove unused header component...; `be0a850` feat: add cache invalidation documentation...; `202fb58` biome; `6fb08a5` authors table pagination.
+- Port (new repo): the generated base-nova `table.tsx` is kept as is, with no variants. `components/article-body.tsx` overrides per use through `className`: `whitespace-normal` on cells so link tables wrap, `h-auto font-bold` on header cells, and `text-right tabular-nums` on numeric columns.
 
 ```diff
 +const tableHeadVariants = cva(
