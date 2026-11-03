@@ -20,6 +20,14 @@ const cases: { path: string; status: number; location?: string; cached?: boolean
   { path: "/novica/content-x", status: 404, cached: false },
   { path: "/novica/unknown-slug", status: 404, cached: false },
   { path: "/novica/junk-2", status: 404, cached: false },
+  // The club pages: stored like articles, one route driven by the fixed slug list.
+  ...["klub", "publiciranje", "raziskovanje", "varstvo", "zgodovina"].map((slug) => ({
+    path: `/${slug}`,
+    status: 200,
+    cached: true,
+  })),
+  // Not in the list: a real 404 without a render, never stored.
+  { path: "/foo", status: 404, cached: false },
   // The framework rejects invalid percent-encoding itself, before routing.
   { path: "/novica/%E0%A4%A", status: 400 },
 ];
@@ -47,6 +55,16 @@ for (const c of cases) {
   console.log(
     `${problems.length ? "FAIL" : "ok  "} ${c.path} ${first.status} ${first.cache ?? "-"} -> ${second.cache ?? "-"} ${problems.join("; ")}`,
   );
+}
+// An unknown top-level path still gets the site shell around its 404 (skip link in the layout).
+{
+  const res = await fetch(base + "/foo");
+  const html = await res.text();
+  const problems: string[] = [];
+  if (res.status !== 404) problems.push(`status ${res.status}`);
+  if (!html.includes("Preskoči na vsebino")) problems.push("404 renders without the site shell");
+  if (problems.length) failed += 1;
+  console.log(`${problems.length ? "FAIL" : "ok  "} /foo shell ${problems.join("; ")}`);
 }
 // The homepage: stored, newest first (filler-0 and filler-1 tie on the date), and paged.
 {

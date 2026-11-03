@@ -5,6 +5,7 @@
  */
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { CONTENT_PAGES } from "../lib/content-pages";
 import * as schema from "../server/db/schema";
 
 const url = process.env.DATABASE_URL ?? "";
@@ -43,6 +44,13 @@ const seeds: Seed[] = [
     kind: "content",
     slugs: [{ slug: "content-x", is_primary: true }],
   },
+  // The five club pages, each at its fixed slug.
+  ...CONTENT_PAGES.map(({ slug, title }): Seed => ({
+    title,
+    status: "published",
+    kind: "content",
+    slugs: [{ slug, is_primary: true }],
+  })),
 ];
 
 // Enough dated news for the homepage feed to span pages (13, then 12 each), including
