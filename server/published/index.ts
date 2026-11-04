@@ -66,5 +66,15 @@ const first_page = unstable_cache(
 
 const next_page = (after: FeedCursor) => published.feed({ limit: NEXT_PAGE_SIZE, after });
 
-/** The public-read module with the framework cache around it. */
-export const get_published = () => ({ by_slug, by_content_page, first_page, next_page });
+/**
+ * The public-read module with the framework cache around it. `sitemap_entries`
+ * is not cached here: the sitemap route's own stored response is, and a
+ * `/sitemap.xml` path purge refreshes it.
+ */
+export const get_published = () => ({
+  by_slug,
+  by_content_page,
+  first_page,
+  next_page,
+  sitemap_entries: () => published.sitemap_entries(),
+});

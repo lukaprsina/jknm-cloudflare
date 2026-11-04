@@ -311,3 +311,36 @@ describe("feed", () => {
     }
   });
 });
+
+describe("sitemap_entries", () => {
+  test("lists each published news article once, under its primary slug and publish date", async () => {
+    const ctx = await setup();
+    const renamed = await publish(ctx, "Jama");
+    await ctx.articles.save({
+      article_id: renamed.id,
+      article: { title: "Velika jama" },
+      author_ids: [],
+    });
+    await ctx.db
+      .update(Article)
+      .set({ published_at: sql`'2026-01-01 10:00+00'::timestamptz` })
+      .where(eq(Article.id, renamed.id));
+    // Everything below is not public news.
+    await ctx.articles.create({ title: "Osnutek" }, "admin");
+    const archived = await publish(ctx, "Arhivirana");
+    await ctx.articles.archive({ article_id: archived.id });
+    const deleted = await publish(ctx, "Izbrisana");
+    await ctx.articles.delete({ article_id: deleted.id });
+    const page = await publish(ctx, "Zgodovina");
+    await ctx.db.update(Article).set({ article_kind: "content" }).where(eq(Article.id, page.id));
+    const slugless = await publish(ctx, "Brez");
+    await ctx.db
+      .update(ArticleSlug)
+      .set({ is_primary: false })
+      .where(eq(ArticleSlug.article_id, slugless.id));
+
+    expect(await ctx.published.sitemap_entries()).toEqual([
+      { slug: "velika-jama", published_at: "2026-01-01T10:00:00.000Z" },
+    ]);
+  });
+});

@@ -36,6 +36,21 @@ const cases: {
   })),
   // Not in the list: a real 404 that is never stored, inside the site shell (the skip link).
   { path: "/foo", status: 404, cached: false, includes: "Preskoči na vsebino" },
+  // A route miss renders the root not-found (no site shell), single segments the shell's.
+  { path: "/a/b/c", status: 404, cached: false, includes: "Stran ne obstaja" },
+  // Metadata routes and the files behind them.
+  { path: "/sitemap.xml", status: 200, cached: true },
+  { path: "/robots.txt", status: 200, cached: true },
+  { path: "/manifest.webmanifest", status: 200, cached: true },
+  ...[
+    "/web-app-manifest-192x192.png",
+    "/web-app-manifest-512x512.png",
+    "/opengraph-image.png",
+    "/apple-icon.png",
+    "/icon0.svg",
+    "/icon1.png",
+    "/favicon.ico",
+  ].map((path) => ({ path, status: 200 })),
   // The top-level club route must not shadow the static routes beside it.
   { path: "/prijava", status: 200 },
   // The framework rejects invalid percent-encoding itself, before routing.
@@ -85,6 +100,45 @@ for (const c of cases) {
   console.log(
     `${problems.length ? "FAIL" : "ok  "} / ${first.status} ${first.cache ?? "-"} -> ${second.cache ?? "-"} ${problems.join("; ")}`,
   );
+}
+// Metadata: the sitemap lists exactly the public news under primary slugs plus the static
+// pages; robots disallows everything; every page carries the default preview image and icons.
+{
+  const manifest = (await (await fetch(base + "/manifest.webmanifest")).json()) as {
+    start_url: string;
+  };
+  const sitemap = await (await fetch(base + "/sitemap.xml")).text();
+  const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]!).pathname);
+  const robots = await (await fetch(base + "/robots.txt")).text();
+  const head = await (await fetch(base + "/novica/pub-a")).text();
+  const home = await (await fetch(base + "/")).text();
+  const problems: string[] = [];
+  if (manifest.start_url !== "/") problems.push("manifest start_url");
+  for (const path of ["/", ...CONTENT_PAGES.map((p) => `/${p.slug}`), "/novica/pub-a"])
+    if (!locs.includes(path)) problems.push(`sitemap lacks ${path}`);
+  // The static pages plus the seeded news: pub-a, renamed-b-new and the 24 fillers.
+  const expected = 1 + CONTENT_PAGES.length + 2 + 24;
+  if (locs.length !== expected) problems.push(`${locs.length} sitemap urls, expected ${expected}`);
+  if (locs.some((path) => /draft|archived|deleted|content|renamed-b-old/.test(path)))
+    problems.push("sitemap lists a hidden or aliased article");
+  if (!/^Disallow: \/$/m.test(robots)) problems.push("robots does not disallow all");
+  // pub-a has no thumbnail, so the default preview image must be served.
+  const preview = head.match(/property="og:image" content="([^"]+)"/)?.[1];
+  if (!preview?.includes("/opengraph-image.png")) problems.push(`og:image is ${preview}`);
+  if (!/<meta[^>]*og:image:alt/.test(head)) problems.push("article lacks og:image:alt");
+  for (const [name, html] of [
+    ["article", head],
+    ["home", home],
+  ] as const) {
+    for (const tag of ["og:image", "twitter:image"])
+      if (!html.includes(`property="${tag}"`) && !html.includes(`name="${tag}"`))
+        problems.push(`${name} lacks ${tag}`);
+    for (const rel of ["icon", "apple-touch-icon", "manifest"])
+      if (!new RegExp(`<link[^>]*rel="${rel}"`).test(html))
+        problems.push(`${name} lacks ${rel} link`);
+  }
+  if (problems.length) failed += 1;
+  console.log(`${problems.length ? "FAIL" : "ok  "} metadata ${problems.join("; ")}`);
 }
 // Fonts must be self-hosted: vinext silently falls back to the Google CDN when its
 // build-time download fails, and Workers Builds always re-downloads.
