@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { excerpt_of } from "../../lib/excerpt";
+import { PG_INT_MAX } from "../../lib/legacy-si-paths";
 import { strip_html_to_text } from "../../lib/inline-html";
 import { to_public_author, type PublicAuthorView } from "../author/public-shape";
 import { ARTICLE_RELATIONS, find_article_with_relations } from "../article/article-rows";
@@ -31,9 +32,6 @@ export type ContentPageResult =
   | { outcome: "not_found" };
 
 export type LegacyIdResult = { outcome: "found"; slug: string } | { outcome: "not_found" };
-
-/** The largest value of a Postgres `integer`, which `Article.legacy_id` is. */
-const INT4_MAX = 2_147_483_647;
 
 /** A news article as a homepage card. */
 export interface FeedCard {
@@ -195,7 +193,7 @@ export function create_published({ db }: { db: Db }) {
      * An id outside Postgres `integer` is `not_found` here, because the driver would throw.
      */
     async by_legacy_id(legacy_id: number): Promise<LegacyIdResult> {
-      if (!Number.isInteger(legacy_id) || legacy_id < 0 || legacy_id > INT4_MAX) return NOT_FOUND;
+      if (!Number.isInteger(legacy_id) || legacy_id < 0 || legacy_id > PG_INT_MAX) return NOT_FOUND;
       const [hit] = await db
         .select({ slug: ArticleSlug.slug })
         .from(ArticleSlug)

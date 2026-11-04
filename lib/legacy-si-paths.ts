@@ -42,7 +42,7 @@ export function resolve_legacy_static_path(segments: string[]): LegacyStaticPath
 
 // Postgres `integer` (what `Article.legacy_id` is) tops out here; a larger id
 // overflows the column and the driver throws, turning "never existed" into a 500.
-const PG_INT_MAX = 2147483647;
+export const PG_INT_MAX = 2147483647;
 
 const LEGACY_ID_RE = /^\d+$/;
 
