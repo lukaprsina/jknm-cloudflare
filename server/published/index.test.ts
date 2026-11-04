@@ -13,7 +13,7 @@ await import("./index");
 // Snapshot now: mocks are cleared between tests.
 const cache_calls = [...unstable_cache.mock.calls];
 
-test.each(["published-by-slug", "published-content-page"])(
+test.each(["published-by-slug", "published-content-page", "published-by-legacy-id"])(
   "the cached %s lookup carries a tag that publishing invalidates",
   async (key) => {
     const call = cache_calls.find(([, keys]) => keys[0] === key);

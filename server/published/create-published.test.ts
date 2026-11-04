@@ -190,6 +190,78 @@ describe("by_content_page", () => {
   });
 });
 
+describe("by_legacy_id", () => {
+  async function publish_with_legacy_id(ctx: Setup, title: string, legacy_id: number) {
+    const article = await publish(ctx, title);
+    await ctx.db.update(Article).set({ legacy_id }).where(eq(Article.id, article.id));
+    return article;
+  }
+
+  test("finds a published article by its legacy id, under the primary slug", async () => {
+    const ctx = await setup();
+    const article = await publish_with_legacy_id(ctx, "Jama", 42);
+    await ctx.articles.save({
+      article_id: article.id,
+      article: { title: "Velika jama" },
+      author_ids: [],
+    });
+
+    expect(await ctx.published.by_legacy_id(42)).toEqual({ outcome: "found", slug: "velika-jama" });
+  });
+
+  test("a hidden article, a content page and an unknown id are not found", async () => {
+    const ctx = await setup();
+    await ctx.articles
+      .create({ title: "Osnutek" }, "admin")
+      .then(({ id }) => ctx.db.update(Article).set({ legacy_id: 1 }).where(eq(Article.id, id)));
+    await ctx.articles.archive({
+      article_id: (await publish_with_legacy_id(ctx, "Arhiv", 2)).id,
+    });
+    await ctx.articles.delete({
+      article_id: (await publish_with_legacy_id(ctx, "Brisano", 3)).id,
+    });
+    const page = await publish_with_legacy_id(ctx, "Klub", 4);
+    await ctx.db.update(Article).set({ article_kind: "content" }).where(eq(Article.id, page.id));
+
+    for (const id of [1, 2, 3, 4, 5]) {
+      expect(await ctx.published.by_legacy_id(id)).toEqual({ outcome: "not_found" });
+    }
+  });
+
+  test("a published article without a primary slug is not found", async () => {
+    const ctx = await setup();
+    const article = await publish_with_legacy_id(ctx, "Jama", 7);
+    await ctx.db
+      .update(ArticleSlug)
+      .set({ is_primary: false })
+      .where(eq(ArticleSlug.article_id, article.id));
+
+    expect(await ctx.published.by_legacy_id(7)).toEqual({ outcome: "not_found" });
+  });
+
+  test("the legacy id follows a retitled revision; the retired source no longer answers", async () => {
+    const ctx = await setup();
+    const source = await publish_with_legacy_id(ctx, "Jama", 9);
+    const draft = await ctx.articles.create_superseding_draft({ article_id: source.id }, "admin");
+    await ctx.articles.publish({
+      article_id: draft.id,
+      article: { title: "Velika jama" },
+      author_ids: [],
+    });
+
+    expect(await ctx.published.by_legacy_id(9)).toEqual({ outcome: "found", slug: "velika-jama" });
+  });
+
+  // Postgres `integer` overflows past this; the driver would throw (a 500) instead of a not-found.
+  test.each([-1, 1.5, 2_147_483_648, Number.NaN])(
+    "an out-of-range id %s is not found",
+    async (id) => {
+      const { published } = await setup();
+      expect(await published.by_legacy_id(id)).toEqual({ outcome: "not_found" });
+    },
+  );
+});
+
 describe("feed", () => {
   /** Publishes articles and pins their dates (Postgres text, so microseconds are expressible). */
   async function seed(ctx: Setup, dated: Record<string, string>) {

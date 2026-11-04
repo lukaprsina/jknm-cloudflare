@@ -9,20 +9,21 @@ const published = create_published({ db });
 class NotFoundSignal extends Error {}
 
 /**
- * A slug lookup cached for the `article` tag. `not_found` throws inside the
+ * A lookup by slug or legacy id, cached for the `article` tag. `not_found` throws inside the
  * cached function so it is never stored: a crawler hitting junk slugs must not
  * grow the data cache. Everything else (found, redirect) is bounded by the real
  * slugs. Dates are ISO strings, so the cache's JSON round-trip loses nothing.
  * `key` must differ per lookup, or their entries would collide. Deduplicated
- * per request: `generateMetadata` and the page body both ask.
+ * per request: `generateMetadata` and the page body both ask. Callers pass a
+ * canonical argument (a validated number, a slug), so equal lookups share an entry.
  */
-function cached_lookup<Result extends { outcome: string }>(
+function cached_lookup<Arg extends string | number, Result extends { outcome: string }>(
   key: string,
-  lookup: (slug: string) => Promise<Result>,
+  lookup: (arg: Arg) => Promise<Result>,
 ) {
   const cached = unstable_cache(
-    async (slug: string) => {
-      const result = await lookup(slug);
+    async (arg: Arg) => {
+      const result = await lookup(arg);
       if (result.outcome === "not_found") throw new NotFoundSignal();
       return result;
     },
@@ -34,9 +35,9 @@ function cached_lookup<Result extends { outcome: string }>(
     // `/novica/<slug>` and the club pages. Removing it silently stops them refreshing.
     { tags: ["article"] satisfies CacheTag[], revalidate: 3600 },
   );
-  return cache(async (slug: string): Promise<Result | { outcome: "not_found" }> => {
+  return cache(async (arg: Arg): Promise<Result | { outcome: "not_found" }> => {
     try {
-      return await cached(slug);
+      return await cached(arg);
     } catch (error) {
       if (error instanceof NotFoundSignal) return { outcome: "not_found" };
       throw error;
@@ -44,9 +45,13 @@ function cached_lookup<Result extends { outcome: string }>(
   });
 }
 
-const by_slug = cached_lookup("published-by-slug", (slug) => published.by_slug(slug));
-const by_content_page = cached_lookup("published-content-page", (slug) =>
+const by_slug = cached_lookup("published-by-slug", (slug: string) => published.by_slug(slug));
+const by_content_page = cached_lookup("published-content-page", (slug: string) =>
   published.by_content_page(slug),
+);
+
+const by_legacy_id = cached_lookup("published-by-legacy-id", (id: number) =>
+  published.by_legacy_id(id),
 );
 
 /** One featured card, then rows that stay full at 2 and 3 columns. */
@@ -74,6 +79,7 @@ const next_page = (after: FeedCursor) => published.feed({ limit: NEXT_PAGE_SIZE,
 export const get_published = () => ({
   by_slug,
   by_content_page,
+  by_legacy_id,
   first_page,
   next_page,
   sitemap_entries: () => published.sitemap_entries(),

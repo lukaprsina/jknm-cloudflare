@@ -30,6 +30,11 @@ export type ContentPageResult =
   | { outcome: "found"; page: PublishedPage }
   | { outcome: "not_found" };
 
+export type LegacyIdResult = { outcome: "found"; slug: string } | { outcome: "not_found" };
+
+/** The largest value of a Postgres `integer`, which `Article.legacy_id` is. */
+const INT4_MAX = 2_147_483_647;
+
 /** A news article as a homepage card. */
 export interface FeedCard {
   id: string;
@@ -183,6 +188,26 @@ export function create_published({ db }: { db: Db }) {
       const page = await load_page(hit.article_id);
       // Unpublished between the two queries.
       return page ? { outcome: "found", slug: hit.primary, page } : NOT_FOUND;
+    },
+
+    /**
+     * Old `www.jknm.si/si/?id=` links. The slug is the primary one; a route builds the path.
+     * An id outside Postgres `integer` is `not_found` here, because the driver would throw.
+     */
+    async by_legacy_id(legacy_id: number): Promise<LegacyIdResult> {
+      if (!Number.isInteger(legacy_id) || legacy_id < 0 || legacy_id > INT4_MAX) return NOT_FOUND;
+      const [hit] = await db
+        .select({ slug: ArticleSlug.slug })
+        .from(ArticleSlug)
+        .innerJoin(Article, eq(Article.id, ArticleSlug.article_id))
+        .where(
+          and(
+            eq(Article.legacy_id, legacy_id),
+            eq(ArticleSlug.is_primary, true),
+            is_published("article"),
+          ),
+        );
+      return hit ? { outcome: "found", slug: hit.slug } : NOT_FOUND;
     },
 
     /** Only the primary slug counts: an alias of a content page is not a route, so it never redirects. */
