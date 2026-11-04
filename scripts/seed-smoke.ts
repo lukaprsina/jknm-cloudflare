@@ -23,25 +23,44 @@ type Seed = {
   kind?: "article" | "content";
   /** Defaults to a few days ago, older than every filler, so the feed order is fixed. */
   published_at?: Date;
+  /** The id an old `/si/?id=` link carries. */
+  legacy_id?: number;
   slugs: { slug: string; is_primary: boolean }[];
 };
 const seeds: Seed[] = [
-  { title: "Published A", status: "published", slugs: [{ slug: "pub-a", is_primary: true }] },
+  {
+    title: "Published A",
+    status: "published",
+    legacy_id: 101,
+    slugs: [{ slug: "pub-a", is_primary: true }],
+  },
   {
     title: "Renamed B",
     status: "published",
+    legacy_id: 102,
     slugs: [
       { slug: "renamed-b-new", is_primary: true },
       { slug: "renamed-b-old", is_primary: false },
     ],
   },
-  { title: "Draft", status: "draft", slugs: [{ slug: "draft-x", is_primary: true }] },
-  { title: "Archived", status: "archived", slugs: [{ slug: "archived-x", is_primary: true }] },
+  {
+    title: "Draft",
+    status: "draft",
+    legacy_id: 103,
+    slugs: [{ slug: "draft-x", is_primary: true }],
+  },
+  {
+    title: "Archived",
+    status: "archived",
+    legacy_id: 104,
+    slugs: [{ slug: "archived-x", is_primary: true }],
+  },
   { title: "Deleted", status: "deleted", slugs: [{ slug: "deleted-x", is_primary: true }] },
   {
     title: "Content page",
     status: "published",
     kind: "content",
+    legacy_id: 105,
     slugs: [{ slug: "content-x", is_primary: true }],
   },
   // The five club pages, each at its fixed slug.
@@ -73,6 +92,7 @@ for (const s of seeds) {
       title: s.title,
       status: s.status,
       article_kind: s.kind ?? "article",
+      legacy_id: s.legacy_id,
       published_at: s.published_at ?? new Date(Date.UTC(2025, 0, 1)),
       updated_at: new Date(),
     })

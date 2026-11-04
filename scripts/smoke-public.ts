@@ -55,6 +55,23 @@ const cases: {
   { path: "/prijava", status: 200 },
   // The framework rejects invalid percent-encoding itself, before routing.
   { path: "/novica/%E0%A4%A", status: 400 },
+  // Old `/si` links: never stored (a stored redirect could not be purged). Hidden ids are 410.
+  { path: "/si?id=101", status: 308, location: "/novica/pub-a", cached: false },
+  { path: "/si?id=102", status: 308, location: "/novica/renamed-b-new", cached: false },
+  // `/si/?id=` is what old links look like: the framework drops the slash first, keeping the query.
+  { path: "/si/?id=101", status: 308, location: "/si?id=101", cached: false },
+  { path: "/si?id=101&l=2019", status: 308, location: "/novica/pub-a", cached: false },
+  { path: "/si?id=103", status: 410, cached: false },
+  { path: "/si?id=104", status: 410, cached: false },
+  { path: "/si?id=105", status: 410, cached: false },
+  { path: "/si?id=999999", status: 410, cached: false },
+  { path: "/si?id=2147483648", status: 410, cached: false },
+  { path: "/si?id=abc", status: 410, cached: false },
+  { path: "/si", status: 301, location: "/", cached: false },
+  { path: "/si?id=", status: 301, location: "/", cached: false },
+  { path: "/si/klub", status: 308, location: "/klub", cached: false },
+  { path: "/si/klub/zgodovina", status: 308, location: "/zgodovina", cached: false },
+  { path: "/si/jame", status: 410, cached: false },
 ];
 
 let failed = 0;
