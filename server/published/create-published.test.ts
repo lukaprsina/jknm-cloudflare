@@ -239,7 +239,7 @@ describe("by_legacy_id", () => {
     expect(await ctx.published.by_legacy_id(7)).toEqual({ outcome: "not_found" });
   });
 
-  test("the legacy id follows a retitled revision; the retired source no longer answers", async () => {
+  test("the legacy id follows a retitled revision to its new slug", async () => {
     const ctx = await setup();
     const source = await publish_with_legacy_id(ctx, "Jama", 9);
     const draft = await ctx.articles.create_superseding_draft({ article_id: source.id }, "admin");
