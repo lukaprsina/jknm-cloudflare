@@ -7,11 +7,11 @@ import { get_published } from "@/server/published";
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const entries = await get_published().sitemap_entries();
+  const articles = await get_published().sitemap_entries();
   return [
     { url: page_url("/") },
     ...CONTENT_PAGES.map(({ slug }) => ({ url: page_url(`/${slug}`) })),
-    ...entries.map(({ slug, published_at }) => ({
+    ...articles.map(({ slug, published_at }) => ({
       url: page_url(article_path(slug)),
       lastModified: published_at,
     })),

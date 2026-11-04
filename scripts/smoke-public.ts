@@ -38,12 +38,19 @@ const cases: {
   { path: "/foo", status: 404, cached: false, includes: "Preskoči na vsebino" },
   // A route miss renders the root not-found (no site shell), single segments the shell's.
   { path: "/a/b/c", status: 404, cached: false, includes: "Stran ne obstaja" },
-  { path: "/foo", status: 404, cached: false, includes: "Stran ne obstaja" },
   // Metadata routes and the files behind them.
   { path: "/sitemap.xml", status: 200, cached: true },
   { path: "/robots.txt", status: 200, cached: true },
   { path: "/manifest.webmanifest", status: 200, cached: true },
-  { path: "/web-app-manifest-192x192.png", status: 200 },
+  ...[
+    "/web-app-manifest-192x192.png",
+    "/web-app-manifest-512x512.png",
+    "/opengraph-image.png",
+    "/apple-icon.png",
+    "/icon0.svg",
+    "/icon1.png",
+    "/favicon.ico",
+  ].map((path) => ({ path, status: 200 })),
   // The top-level club route must not shadow the static routes beside it.
   { path: "/prijava", status: 200 },
   // The framework rejects invalid percent-encoding itself, before routing.
@@ -109,10 +116,16 @@ for (const c of cases) {
   if (manifest.start_url !== "/") problems.push("manifest start_url");
   for (const path of ["/", ...CONTENT_PAGES.map((p) => `/${p.slug}`), "/novica/pub-a"])
     if (!locs.includes(path)) problems.push(`sitemap lacks ${path}`);
-  if (locs.length !== 6 + 26) problems.push(`${locs.length} sitemap urls, expected 32`);
+  // The static pages plus the seeded news: pub-a, renamed-b-new and the 24 fillers.
+  const expected = 1 + CONTENT_PAGES.length + 2 + 24;
+  if (locs.length !== expected) problems.push(`${locs.length} sitemap urls, expected ${expected}`);
   if (locs.some((path) => /draft|archived|deleted|content|renamed-b-old/.test(path)))
     problems.push("sitemap lists a hidden or aliased article");
   if (!/^Disallow: \/$/m.test(robots)) problems.push("robots does not disallow all");
+  // pub-a has no thumbnail, so the default preview image must be served.
+  const preview = head.match(/property="og:image" content="([^"]+)"/)?.[1];
+  if (!preview?.includes("/opengraph-image.png")) problems.push(`og:image is ${preview}`);
+  if (!/<meta[^>]*og:image:alt/.test(head)) problems.push("article lacks og:image:alt");
   for (const [name, html] of [
     ["article", head],
     ["home", home],

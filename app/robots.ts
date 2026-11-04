@@ -10,5 +10,7 @@ const CRAWLING_OPEN = false;
 export const revalidate = 3600;
 
 export default function robots(): MetadataRoute.Robots {
-  return { rules: { userAgent: "*", ...(CRAWLING_OPEN ? { allow: "/" } : { disallow: "/" }) } };
+  return {
+    rules: CRAWLING_OPEN ? { userAgent: "*", allow: "/" } : { userAgent: "*", disallow: "/" },
+  };
 }
