@@ -1,0 +1,54 @@
+/* The image area shrinks by padding the container; YARL measures the content box. */
+.jknm-lightbox {
+  --jknm-caption-strip: 6rem;
+  --jknm-caption-side: 20rem;
+}
+.jknm-lightbox .yarl__container {
+  padding-bottom: var(--jknm-caption-strip);
+}
+.jknm-lightbox-caption {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: var(--jknm-caption-strip);
+  overflow-y: auto;
+  padding: 0.75rem 1rem;
+  color: #fff;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  text-align: center;
+}
+.jknm-lightbox-caption a {
+  text-decoration: underline;
+}
+/* margin:auto centres short captions and still lets long ones scroll from the top. */
+.jknm-lightbox-caption-text {
+  margin: auto;
+  width: 100%;
+}
+/* The pane is opaque so neighbouring slides, which overflow the padded content box, don't peek into it. */
+.jknm-lightbox-caption {
+  background: #000;
+  z-index: 1;
+}
+.jknm-lightbox .yarl__toolbar,
+.jknm-lightbox .yarl__navigation_prev,
+.jknm-lightbox .yarl__navigation_next {
+  z-index: 2;
+}
+@media (min-width: 1024px) {
+  .jknm-lightbox .yarl__container {
+    padding-bottom: 0;
+    padding-right: var(--jknm-caption-side);
+  }
+  .jknm-lightbox-caption {
+    inset: 0 0 0 auto;
+    width: var(--jknm-caption-side);
+    height: auto;
+    display: flex;
+    padding: 4rem 1.5rem;
+    text-align: left;
+  }
+  .jknm-lightbox .yarl__navigation_next {
+    right: var(--jknm-caption-side);
+  }
+}

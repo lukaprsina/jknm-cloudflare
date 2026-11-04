@@ -24,6 +24,8 @@ export type PreparedBlock =
       /** Display size: already doubled for small images. */
       width: number;
       height: number;
+      /** The stored pixels, for the lightbox: zoom is measured against these. */
+      natural: { width: number; height: number };
       caption: InlineNode[] | null;
     }
   | {
@@ -104,6 +106,7 @@ export function prepare_article(content: ArticleContentType | null): PreparedArt
           type: "image",
           url: data.file.url,
           ...display_size(data.file),
+          natural: { width: data.file.width, height: data.file.height },
           caption: inline_or_null(data.caption),
         };
       }
