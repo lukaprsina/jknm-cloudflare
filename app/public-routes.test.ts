@@ -17,6 +17,8 @@ const public_entries = [
   "app/robots.ts",
   "app/manifest.ts",
   ...globSync("app/(site)/**/{page,layout,route}.{ts,tsx}", { cwd: root }),
+  // Old links: redirect-only, but still public.
+  ...globSync("app/si/**/route.ts", { cwd: root }),
   ...globSync("components/shell/*.tsx", { cwd: root }),
 ];
 
