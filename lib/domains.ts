@@ -20,5 +20,8 @@ export function deployment_origin(): string {
 /** The absolute URL of a path on this deployment. */
 export const page_url = (path: string) => `${deployment_origin()}${path}`;
 
+/** The path of a news article under its slug. */
+export const article_path = (slug: string) => `/novica/${encodeURIComponent(slug)}`;
+
 /** The club's human-facing address, and the only domain admins sign in from. */
 export const CONTACT_EMAIL = `info@${WORKSPACE_EMAIL_DOMAIN}`;

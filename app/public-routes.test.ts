@@ -12,6 +12,10 @@ const FORBIDDEN = ["server/auth/session", "next/headers"];
 
 const public_entries = [
   "app/layout.tsx",
+  // Metadata routes sit outside `(site)`; the sitemap reads the database.
+  "app/sitemap.ts",
+  "app/robots.ts",
+  "app/manifest.ts",
   ...globSync("app/(site)/**/{page,layout,route}.{ts,tsx}", { cwd: root }),
   ...globSync("components/shell/*.tsx", { cwd: root }),
 ];

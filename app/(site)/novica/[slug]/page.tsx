@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
 import { ArticleBody } from "@/components/article-body";
 import { ArticleLayout } from "@/components/article-layout";
-import { page_url } from "@/lib/domains";
+import { article_path, page_url } from "@/lib/domains";
 import { image_url } from "@/lib/image-url";
 import { article_json_ld, json_ld } from "@/lib/json-ld";
 import { prepare_article } from "@/lib/prepare-article";
@@ -24,16 +24,13 @@ type Props = { params: Promise<{ slug: string }> };
 async function load({ params }: Props) {
   const result = await get_published().by_slug((await params).slug);
   if (result.outcome === "not_found") return not_found_uncached();
-  if (result.outcome === "redirect")
-    permanentRedirect(`/novica/${encodeURIComponent(result.slug)}`);
+  if (result.outcome === "redirect") permanentRedirect(article_path(result.slug));
   return result;
 }
 
-const article_url = (slug: string) => page_url(`/novica/${encodeURIComponent(slug)}`);
-
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const { slug, page } = await load(props);
-  return published_metadata(page, article_url(slug), "article");
+  return published_metadata(page, page_url(article_path(slug)), "article");
 }
 
 export default async function Novica(props: Props) {
@@ -42,7 +39,7 @@ export default async function Novica(props: Props) {
 
   const structured_data = article_json_ld(
     page,
-    article_url(slug),
+    page_url(article_path(slug)),
     page.thumbnail ? image_url(page.thumbnail.url, 1200) : undefined,
   );
 

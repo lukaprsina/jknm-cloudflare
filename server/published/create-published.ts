@@ -55,6 +55,14 @@ export interface FeedPage {
   next_cursor: FeedCursor | null;
 }
 
+/** A news article as the sitemap lists it. */
+export interface SitemapEntry {
+  /** The primary slug. */
+  slug: string;
+  /** ISO date. `updated_at` is not used: backfills moved it for nearly every old article. */
+  published_at: string;
+}
+
 const NOT_FOUND = { outcome: "not_found" } as const;
 
 /**
@@ -140,6 +148,20 @@ export function create_published({ db }: { db: Db }) {
         next_cursor:
           rows.length > limit && last ? { published_at: last.cursor_at, id: last.id } : null,
       };
+    },
+
+    /** Every published news article, newest first, so the output is stable. */
+    async sitemap_entries(): Promise<SitemapEntry[]> {
+      const rows = await db
+        .select({ slug: ArticleSlug.slug, published_at: Article.published_at })
+        .from(Article)
+        .innerJoin(
+          ArticleSlug,
+          and(eq(ArticleSlug.article_id, Article.id), eq(ArticleSlug.is_primary, true)),
+        )
+        .where(is_published("article"))
+        .orderBy(desc(Article.published_at), desc(Article.id));
+      return rows.map((row) => ({ slug: row.slug, published_at: row.published_at!.toISOString() }));
     },
 
     /** Visibility is decided before canonicality, so a hidden article's old slug is `not_found`. */

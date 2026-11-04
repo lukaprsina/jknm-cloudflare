@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { article_path } from "@/lib/domains";
 import { image_url } from "@/lib/image-url";
 import { cn } from "@/lib/utils";
 import type { FeedCard as Card } from "@/server/published/create-published";
@@ -34,7 +35,7 @@ export function FeedCard({ card, featured = false }: { card: Card; featured?: bo
         </time>
         <h2 className={cn("font-bold", featured ? "text-2xl md:text-3xl" : "text-lg")}>
           <Link
-            href={`/novica/${encodeURIComponent(card.slug)}`}
+            href={article_path(card.slug)}
             className="after:absolute after:inset-0 hover:underline"
           >
             {card.title}
