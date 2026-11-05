@@ -41,6 +41,8 @@ export default defineConfig({
   },
   test: {
     exclude: [...configDefaults.exclude, ".references/**", ".cloudflare/**", "docs/private/**"],
+    // The e2e cases wait on the response store; run them all at once.
+    maxConcurrency: 64,
   },
   // Component tests import through the tsconfig `@/*` paths and need JSX compiled
   // (tsconfig keeps it as `preserve` for the framework build).

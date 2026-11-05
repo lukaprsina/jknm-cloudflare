@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vite-plus/test";
 import { CONTENT_PAGES } from "../lib/content-pages";
-import { base, get, seeded, sleep, until_hit } from "./helpers";
+import { base, get, never_hit, seeded, until_hit } from "./helpers";
 
 type Case = {
   path: string;
@@ -43,6 +43,7 @@ const cases: Case[] = [
   { path: "/foo", status: 404, cached: false, includes: "Preskoči na vsebino" },
   // A route miss renders the root not-found (no site shell).
   { path: "/a/b/c", status: 404, cached: false, includes: "Stran ne obstaja" },
+  { path: "/", status: 200, cached: true },
   { path: "/sitemap.xml", status: 200, cached: true },
   { path: "/robots.txt", status: 200, cached: true },
   { path: "/manifest.webmanifest", status: 200, cached: true },
@@ -79,12 +80,18 @@ const cases: Case[] = [
     cached: false,
     seeded: true,
   },
-  { path: "/si?id=103", status: 410, cached: false, seeded: true },
-  { path: "/si?id=104", status: 410, cached: false, seeded: true },
-  { path: "/si?id=105", status: 410, cached: false, seeded: true },
-  { path: "/si?id=999999", status: 410, cached: false },
-  { path: "/si?id=2147483648", status: 410, cached: false },
-  { path: "/si?id=abc", status: 410, cached: false },
+  // Hidden (draft, archived, content), unknown, out of int range and malformed ids.
+  ...["103", "104", "105"].map((id) => ({
+    path: `/si?id=${id}`,
+    status: 410,
+    cached: false as const,
+    seeded: true as const,
+  })),
+  ...["999999", "2147483648", "abc"].map((id) => ({
+    path: `/si?id=${id}`,
+    status: 410,
+    cached: false as const,
+  })),
   { path: "/si", status: 301, location: "/", cached: false },
   { path: "/si?id=", status: 301, location: "/", cached: false },
   { path: "/si/klub", status: 308, location: "/klub", cached: false },
@@ -92,10 +99,12 @@ const cases: Case[] = [
   { path: "/si/jame", status: 410, cached: false },
 ];
 
-const run = cases.filter((c) => seeded || !c.seeded);
+const locs = (sitemap: string) => [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]!);
+
+const applicable = cases.filter((c) => seeded || !c.seeded);
 
 describe.skipIf(!base)("public read path", { timeout: 30_000 }, () => {
-  it.concurrent.for(run)("$path -> $status", async (c) => {
+  it.concurrent.for(applicable)("$path -> $status", async (c) => {
     const first = await get(c.path);
     expect(first.status).toBe(c.status);
     if (c.location) expect(first.location).toBe(c.location);
@@ -103,26 +112,24 @@ describe.skipIf(!base)("public read path", { timeout: 30_000 }, () => {
     if (c.cached) {
       const hit = await until_hit(c.path);
       expect(hit.cache, "stored").toBe("HIT");
-      // Stored pages must not be browser-cacheable: a purge has to take effect at once.
-      expect(hit.cache_control).not.toMatch(/no-store|public/);
+      // Browsers must revalidate a stored page, or a purge could not take effect at once.
+      expect(hit.cache_control).toMatch(/private.*must-revalidate/);
     } else if (c.cached === false) {
-      await sleep(3000);
-      expect((await get(c.path)).cache, "stored").not.toBe("HIT");
+      expect(await never_hit(c.path), "stored").toBe(true);
     }
   });
 
   it("builds absolute URLs from its own origin", async () => {
     const sitemap = await get("/sitemap.xml");
-    const locs = [...sitemap.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-    expect(locs.length).toBeGreaterThan(0);
-    for (const loc of locs) expect(loc.startsWith(`${base}/`), loc).toBe(true);
+    const urls = locs(sitemap.body);
+    expect(urls.length).toBeGreaterThan(0);
+    for (const loc of urls) expect(loc.startsWith(`${base}/`), loc).toBe(true);
     const club = await get(`/${CONTENT_PAGES[0]!.slug}`);
     const canonical = club.body.match(/<link[^>]*rel="canonical"[^>]*href="([^"]+)"/)?.[1];
     expect(canonical?.startsWith(`${base}/`), canonical).toBe(true);
   });
 });
 
-// Everything below reads the seeded data.
 describe.skipIf(!base || !seeded)("seeded preview", () => {
   it("lists the homepage newest first and paged", async () => {
     const { body } = await get("/");
@@ -143,16 +150,14 @@ describe.skipIf(!base || !seeded)("seeded preview", () => {
       get("/manifest.webmanifest"),
     ]);
     expect(JSON.parse(manifest.body).start_url).toBe("/");
-    const locs = [...sitemap.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
-      (m) => new URL(m[1]!).pathname,
-    );
-    expect(locs).toEqual(
+    const paths = locs(sitemap.body).map((loc) => new URL(loc).pathname);
+    expect(paths).toEqual(
       expect.arrayContaining(["/", ...CONTENT_PAGES.map((p) => `/${p.slug}`), "/novica/pub-a"]),
     );
     // Static pages plus the seeded news: pub-a, renamed-b-new and the 24 fillers.
-    expect(locs).toHaveLength(1 + CONTENT_PAGES.length + 2 + 24);
+    expect(paths).toHaveLength(1 + CONTENT_PAGES.length + 2 + 24);
     expect(
-      locs.filter((path) => /draft|archived|deleted|content|renamed-b-old/.test(path)),
+      paths.filter((path) => /draft|archived|deleted|content|renamed-b-old/.test(path)),
     ).toEqual([]);
     // Open before cutover, replaced by an allow-list afterwards: only the preview is pinned.
     expect(robots.body).toMatch(/^Disallow: \/$/m);
