@@ -75,6 +75,8 @@ describe("prepare_article blocks", () => {
       [480, 600],
       [1200, 800],
     ]);
+    // The lightbox zooms against stored pixels, so those stay as they were.
+    expect(blocks[0]).toMatchObject({ natural: { width: 480, height: 320 } });
   });
 
   test("a table right-aligns columns that are mostly measurements", () => {

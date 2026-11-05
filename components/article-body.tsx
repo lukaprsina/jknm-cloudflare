@@ -1,4 +1,5 @@
 import { Inline } from "@/components/inline";
+import { LightboxProvider, LightboxTrigger } from "@/components/lightbox/lightbox-provider";
 import {
   Table,
   TableBody,
@@ -8,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { image_url } from "@/lib/image-url";
+import type { LightboxImage } from "@/components/lightbox/types";
 import type { InlineNode } from "@/lib/inline-html";
 import type { ListItem, PreparedBlock } from "@/lib/prepare-article";
 import { cn } from "@/lib/utils";
@@ -36,7 +38,15 @@ function Caption({ nodes }: { nodes: InlineNode[] | null }) {
   );
 }
 
-function Block({ block, eager }: { block: PreparedBlock; eager: boolean }) {
+function Block({
+  block,
+  eager,
+  image_index,
+}: {
+  block: PreparedBlock;
+  eager: boolean;
+  image_index: number;
+}) {
   switch (block.type) {
     case "header": {
       const Tag = block.depth === 1 ? "h1" : block.depth === 2 ? "h2" : "h3";
@@ -65,15 +75,17 @@ function Block({ block, eager }: { block: PreparedBlock; eager: boolean }) {
     case "image":
       return (
         <figure className="my-6">
-          {/* oxlint-disable-next-line next/no-img-element -- images skip the framework optimizer */}
-          <img
-            src={image_url(block.url, block.width)}
-            width={block.width}
-            height={block.height}
-            alt=""
-            loading={eager ? "eager" : "lazy"}
-            className="block h-auto max-w-full"
-          />
+          <LightboxTrigger index={image_index}>
+            {/* oxlint-disable-next-line next/no-img-element -- images skip the framework optimizer */}
+            <img
+              src={image_url(block.url, block.width)}
+              width={block.width}
+              height={block.height}
+              alt=""
+              loading={eager ? "eager" : "lazy"}
+              className="block h-auto max-w-full"
+            />
+          </LightboxTrigger>
           <Caption nodes={block.caption} />
         </figure>
       );
@@ -150,11 +162,26 @@ function Block({ block, eager }: { block: PreparedBlock; eager: boolean }) {
   }
 }
 
-/** The article's blocks as markup. A server component: no client JS ships for the body itself. */
+/** The article's blocks as markup. The body itself is a server component; only the image buttons and the lightbox are client code. */
 export function ArticleBody({ blocks }: { blocks: PreparedBlock[] }) {
   // The first image is usually above the fold; lazy-loading it would delay the largest paint.
   const first_image = blocks.findIndex((block) => block.type === "image");
-  return blocks.map((block, index) => (
-    <Block key={index} block={block} eager={index === first_image} />
-  ));
+  const image_blocks = blocks.filter((block) => block.type === "image");
+  const images: LightboxImage[] = image_blocks.map((block) => ({
+    url: block.url,
+    ...block.natural,
+    caption: block.caption,
+  }));
+  return (
+    <LightboxProvider images={images}>
+      {blocks.map((block, index) => (
+        <Block
+          key={index}
+          block={block}
+          eager={index === first_image}
+          image_index={image_blocks.findIndex((image) => image === block)}
+        />
+      ))}
+    </LightboxProvider>
+  );
 }
