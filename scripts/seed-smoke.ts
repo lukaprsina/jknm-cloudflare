@@ -1,7 +1,7 @@
 /**
  * Seeds a LOCAL database with one article per visibility case for
- * `scripts/smoke-public.ts`. Refuses anything but a local database named *smoke* or *probe*.
- * Usage: DATABASE_URL=postgres://... vpx scripts/seed-smoke.ts
+ * the seeded cases of `e2e/contract.e2e.test.ts`. Refuses anything but a local database named *smoke* or *probe*.
+ * Usage: DATABASE_URL=postgres://... vpx scripts/seed-smoke.ts (then see e2e/contract.e2e.test.ts)
  */
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
