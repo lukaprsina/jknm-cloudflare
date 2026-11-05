@@ -18,6 +18,9 @@ function useRootFontSize(): number {
   return size;
 }
 
+/** Gap between the content and the screen edge, in px. */
+const PADDING = 16;
+
 const caption_class = "px-3 py-2 text-sm leading-snug text-white/90 [&_a]:underline";
 
 /**
@@ -60,7 +63,14 @@ export function Slide({
 
   const layout =
     near && viewport
-      ? slide_layout({ image: natural, viewport, has_caption, caption_height, aside_width })
+      ? slide_layout({
+          image: natural,
+          viewport,
+          has_caption,
+          caption_height,
+          aside_width,
+          padding: PADDING,
+        })
       : null;
   const fit_width =
     near && viewport
@@ -69,6 +79,7 @@ export function Slide({
           viewport,
           has_caption: false,
           caption_height: null,
+          padding: PADDING,
           aside_width,
         }).image_rect.width
       : 0;

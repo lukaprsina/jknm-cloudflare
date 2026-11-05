@@ -10,6 +10,8 @@ export type SlideLayoutInput = {
   caption_height: number | null;
   /** Fixed width of an aside caption. */
   aside_width: number;
+  /** Space kept free around the image and caption, so they never touch the screen edge. */
+  padding?: number;
 };
 
 export type SlideLayout = {
@@ -64,13 +66,13 @@ function below_layout(
  * viewport and centred. The caption hugs it. Only if the caption does not fit in the free margin
  * is the area shrunk and the image refitted.
  */
-export function slide_layout({
+function layout_inside({
   image,
   viewport,
   has_caption,
   caption_height,
   aside_width,
-}: SlideLayoutInput): SlideLayout {
+}: Omit<SlideLayoutInput, "padding">): SlideLayout {
   const full = fit(image, viewport);
   if (!has_caption)
     return { image_rect: centred_in(viewport, full), caption: "none", caption_rect: null };
@@ -96,5 +98,17 @@ export function slide_layout({
       width: aside_width,
       height: image_rect.height,
     },
+  };
+}
+
+export function slide_layout({ padding = 0, ...input }: SlideLayoutInput): SlideLayout {
+  const { viewport } = input;
+  const inner = { width: viewport.width - 2 * padding, height: viewport.height - 2 * padding };
+  const layout = layout_inside({ ...input, viewport: inner });
+  const shift = (rect: Rect): Rect => ({ ...rect, x: rect.x + padding, y: rect.y + padding });
+  return {
+    ...layout,
+    image_rect: shift(layout.image_rect),
+    caption_rect: layout.caption_rect && shift(layout.caption_rect),
   };
 }

@@ -156,3 +156,27 @@ describe("slide_layout with a caption below", () => {
     expect(layout.caption_rect?.height).toBe(0);
   });
 });
+
+describe("slide_layout padding", () => {
+  test("keeps the image off the screen edge and still centred", () => {
+    const layout = slide_layout({
+      image: { width: 2000, height: 500 },
+      viewport: desktop,
+      ...no_caption,
+      padding: 16,
+    });
+    expect(layout.image_rect).toEqual({ x: 16, y: 304, width: 1888, height: 472 });
+  });
+
+  test("the caption stays inside the padded area", () => {
+    const layout = slide_layout({
+      image: { width: 1000, height: 1000 },
+      viewport: { width: 1400, height: 1000 },
+      ...captioned,
+      padding: 16,
+    });
+    const caption = layout.caption_rect!;
+    expect(caption.x + caption.width).toBeLessThanOrEqual(1400 - 16);
+    expect(layout.image_rect.y).toBeGreaterThanOrEqual(16);
+  });
+});
