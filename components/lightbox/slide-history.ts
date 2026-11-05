@@ -22,7 +22,7 @@ function index_in_state(count: number): number | null {
 /**
  * Stops the browser from restoring a scroll position when traversing history, for as long as the
  * article is mounted. Its automatic restoration puts the page back where the lightbox entry was
- * recorded (smoothly, as `html` is), on Forward and again on close. vinext still restores pages
+ * recorded, on Forward and again on close. vinext still restores pages
  * it navigated through, as those entries carry their own saved position.
  */
 export function useManualScrollRestoration() {

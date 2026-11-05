@@ -147,12 +147,6 @@ a {
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
-  }
-}
-
 :root {
   /* Sticky chrome heights: the mobile bar (the nav row from `lg`) and the article's
      mobile table-of-contents bar, which sticks right under it. */

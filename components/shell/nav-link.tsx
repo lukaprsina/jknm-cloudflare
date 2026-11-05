@@ -11,16 +11,16 @@ export function NavLink({ href, ...props }: ComponentProps<typeof Link> & { href
 }
 
 /**
- * A link to "/" that also scrolls to the top when clicked on the home page: a
- * same-route click is a no-op navigation, so it would otherwise leave the page where it is.
+ * A link to "/" that always scrolls to the top. Left to the router, a click on the home page
+ * is a no-op navigation, and from another page the router leaves the scroll position alone
+ * when the new page's first element is already in view.
  */
 export function HomeLink({ onClick, ...props }: Omit<ComponentProps<typeof Link>, "href">) {
-  const pathname = usePathname();
   return (
     <Link
       href="/"
       onClick={(event) => {
-        if (pathname === "/") window.scrollTo({ top: 0 });
+        window.scrollTo({ top: 0 });
         onClick?.(event);
       }}
       {...props}
