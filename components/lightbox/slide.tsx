@@ -37,8 +37,10 @@ export function Slide({
     on_zoomed(next.scale > 1);
     set_zoom_state(next);
   };
-  // Leaving the slide resets its zoom. Done during render so it is never seen zoomed on return.
-  if (!active && zoom !== NO_ZOOM) set_zoom(NO_ZOOM);
+  // Leaving the slide resets its zoom.
+  useEffect(() => {
+    if (!active && zoom !== NO_ZOOM) set_zoom(NO_ZOOM);
+  });
   const [caption_height, set_caption_height] = useState<number | null>(null);
   const [caption_el, set_caption_el] = useState<HTMLDivElement | null>(null);
   const [img, set_img] = useState<HTMLImageElement | null>(null);

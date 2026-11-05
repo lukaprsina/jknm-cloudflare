@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, lazy, Suspense, useContext, useState } from "react";
+import { push_slide_entry, useReopenOnForward } from "./slide-history";
 import type { LightboxImage } from "./types";
 
 const LightboxView = lazy(() => import("./lightbox"));
@@ -15,14 +16,13 @@ export function LightboxProvider({
   children: React.ReactNode;
 }) {
   const [index, set_index] = useState<number | null>(null);
-  // The lightbox owns one history entry (#slika-N, same page), so the back button closes it.
-  // Both ends are here: the lightbox only asks for history.back() and closes on popstate.
-  const open = (at: number) => {
-    history.pushState(history.state, "", `#slika-${at + 1}`);
+  const open_from_click = (at: number) => {
+    push_slide_entry(at);
     set_index(at);
   };
+  useReopenOnForward(index !== null, images.length, set_index);
   return (
-    <OpenContext value={open}>
+    <OpenContext value={open_from_click}>
       {children}
       {index !== null && (
         <Suspense fallback={null}>

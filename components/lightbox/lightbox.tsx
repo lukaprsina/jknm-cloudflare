@@ -10,6 +10,7 @@ import type { LightboxImage } from "./types";
 import { useElementSize } from "./use-element-size";
 import { useSwipeClose } from "./use-swipe-close";
 import { ASIDE_REM } from "./slide-layout";
+import { useSlideEntry } from "./slide-history";
 
 const arrow_class =
   "absolute top-1/2 hidden size-11 -translate-y-1/2 place-items-center rounded-full bg-black/40 text-white hover:bg-black/60 disabled:opacity-30 md:grid";
@@ -27,28 +28,18 @@ export default function Lightbox({
   index: number;
   on_close: () => void;
 }) {
-  // Closing goes back one history entry (the provider pushed it on open); the popstate below
-  // starts the fade, and the parent unmounts us (releasing Base UI's scroll lock) after.
+  // Closing fades out; the parent unmounts us (releasing Base UI's scroll lock) after.
   const [open, set_open] = useState(true);
-  const request_close = () => history.back();
   const [popup, set_popup] = useState<HTMLDivElement | null>(null);
   const [stage, set_stage] = useState<HTMLDivElement | null>(null);
   const viewport = useElementSize(stage);
-  const aside_width = ASIDE_REM * root_font_size();
+  const [aside_width] = useState(() => ASIDE_REM * root_font_size());
   const [embla_ref, embla] = useEmblaCarousel({ startSnap: index });
   const [active, set_active] = useState(index);
   // Embla reads this on every pointer-down; a ref, so toggling zoom never re-initialises it.
   const zoomed = useRef(false);
 
-  // The photo's hash entry follows the slide, so Android's back button closes the lightbox.
-  useEffect(() => {
-    history.replaceState(history.state, "", `#slika-${active + 1}`);
-  }, [active]);
-  useEffect(() => {
-    const on_popstate = () => set_open(false);
-    window.addEventListener("popstate", on_popstate);
-    return () => window.removeEventListener("popstate", on_popstate);
-  }, []);
+  const close = useSlideEntry(active, set_open);
 
   useEffect(() => {
     if (!embla) return;
@@ -63,7 +54,7 @@ export default function Lightbox({
     };
   }, [embla]);
 
-  useSwipeClose(stage, popup, () => zoomed.current, request_close);
+  useSwipeClose(stage, popup, () => zoomed.current, close);
 
   const last = images.length - 1;
   const label = `Slika ${active + 1} od ${images.length}`;
@@ -71,7 +62,7 @@ export default function Lightbox({
   return (
     <Dialog.Root
       open={open}
-      onOpenChange={(next) => !next && request_close()}
+      onOpenChange={(next) => !next && close()}
       onOpenChangeComplete={(is_open) => !is_open && on_close()}
     >
       <Dialog.Portal>
@@ -98,7 +89,7 @@ export default function Lightbox({
                     near={Math.abs(i - active) <= 1}
                     active={i === active}
                     on_zoomed={(is_zoomed) => (zoomed.current = is_zoomed)}
-                    on_close={request_close}
+                    on_close={close}
                   />
                 ))}
               </div>

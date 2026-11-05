@@ -35,7 +35,7 @@ export const ASIDE_REM = 20;
 /** Gap between the content and the screen edge, in px. */
 export const PADDING = 16;
 
-/** The aside caption is only offered where a 20 rem pane can sit beside the image. */
+/** The aside caption is only offered from the `md` breakpoint up, where a pane fits beside the image. */
 const ASIDE_MIN_VIEWPORT = 768;
 
 function centred_in(area: Size, size: Size): Rect {
