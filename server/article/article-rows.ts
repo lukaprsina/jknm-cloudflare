@@ -113,7 +113,6 @@ export const REVISION_COPIED_COLUMNS = [
   "article_kind",
   "published_at",
   "content_json",
-  "excerpt",
   "thumbnail_media_id",
   "thumbnail_x",
   "thumbnail_y",

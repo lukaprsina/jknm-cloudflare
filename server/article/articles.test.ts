@@ -658,7 +658,7 @@ describe("what a revision copies from its source", () => {
     expect(classified).toEqual(all);
   });
 
-  test("copies content, kind, date, excerpt and thumbnail crop", async () => {
+  test("copies content, kind, date and thumbnail crop", async () => {
     const { db, articles } = await setup();
     const media = await add_media(db, "naslovna.jpg");
     const source = await publish_new(articles, "Zgodovina");
@@ -670,7 +670,6 @@ describe("what a revision copies from its source", () => {
         article_kind: "content",
         published_at,
         content_json: content,
-        excerpt: "Povzetek",
         thumbnail_media_id: media.id,
         thumbnail_x: 1,
         thumbnail_y: 2,
@@ -687,7 +686,6 @@ describe("what a revision copies from its source", () => {
       article_kind: "content",
       published_at,
       content_json: content,
-      excerpt: "Povzetek",
       thumbnail_media_id: media.id,
       thumbnail_x: 1,
       thumbnail_y: 2,
