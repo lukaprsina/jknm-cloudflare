@@ -1,29 +1,7 @@
 import { useEffect, useRef } from "react";
+import { lightbox_index, replace_lightbox_entry } from "../history-state";
 
-/**
- * The lightbox owns one history entry on the article's own URL (`#slika-N`), so the back button
- * (Android's especially) closes it instead of leaving the article. Open pushes it, swiping
- * replaces it, closing pops it with history.back(), and Forward reopens it.
- */
-const PREFIX = "#slika-";
-
-/**
- * Pushes the entry; call when the lightbox opens from a click. The entry records the scroll
- * position in vinext's own keys: on Forward, vinext restores the entry's saved position, and
- * without one it scrolls to the missing `#slika-N` target, i.e. the top (smoothly, as `html` is).
- */
-export function push_slide_entry(index: number) {
-  const scroll = { __vinext_scrollX: scrollX, __vinext_scrollY: scrollY };
-  history.pushState({ ...history.state, ...scroll }, "", PREFIX + (index + 1));
-}
-
-function index_in_hash(count: number): number | null {
-  if (!location.hash.startsWith(PREFIX)) return null;
-  const index = Number(location.hash.slice(PREFIX.length)) - 1;
-  return Number.isInteger(index) && index >= 0 && index < count ? index : null;
-}
-
-/** While closed, Forward onto a `#slika-N` entry reopens the lightbox there. */
+/** While closed, Forward onto a lightbox entry reopens the lightbox there. */
 export function useReopenOnForward(is_open: boolean, count: number, open_at: (i: number) => void) {
   const latest = useRef({ is_open, count, open_at });
   useEffect(() => {
@@ -32,7 +10,7 @@ export function useReopenOnForward(is_open: boolean, count: number, open_at: (i:
   useEffect(() => {
     const on_popstate = () => {
       const { is_open, count, open_at } = latest.current;
-      const index = is_open ? null : index_in_hash(count);
+      const index = is_open ? null : lightbox_index(count);
       if (index !== null) open_at(index);
     };
     window.addEventListener("popstate", on_popstate);
@@ -48,7 +26,7 @@ export function useReopenOnForward(is_open: boolean, count: number, open_at: (i:
 export function useSlideEntry(active: number, set_open: (open: boolean) => void) {
   const closing = useRef(false);
   useEffect(() => {
-    history.replaceState(history.state, "", PREFIX + (active + 1));
+    replace_lightbox_entry(active);
   }, [active]);
   useEffect(() => {
     const on_popstate = () => {

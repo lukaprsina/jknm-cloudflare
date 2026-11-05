@@ -4,35 +4,50 @@ import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { load_more_feed } from "@/app/(site)/load-more-feed";
 import { Sponsors } from "@/components/shell/sponsors";
 import { Button } from "@/components/ui/button";
-import type { FeedPage } from "@/server/published/create-published";
+import type { FeedCursor, FeedPage } from "@/server/published/create-published";
+import { history_entry } from "../history-state";
 import { FeedCard } from "./feed-card";
+import { append_page, create_feed_memory, type FeedState } from "./feed-state";
+
+/** How many history entries keep their grown list; a few pages back is as far as anyone goes. */
+const MEMORY_ENTRIES = 5;
+
+const feed_memory = create_feed_memory({ read_entry: history_entry, max: MEMORY_ENTRIES });
 
 /**
- * The homepage list: the server-rendered first page, then more as the visitor
- * nears the end or presses the button. Going back to `/` shows the first page
- * again; the client state is not retained.
+ * The homepage list: the server-rendered first page, then more as the visitor nears the end or
+ * presses the button.
  */
 export function InfiniteFeed({ first }: { first: FeedPage }) {
-  const [cards, setCards] = useState(first.cards);
-  const [cursor, setCursor] = useState(first.next_cursor);
+  // The server renders `first`; a reload finds the memory empty, so the client's first render
+  // matches. Only a client-side Back finds a grown list here.
+  const [feed, set_feed] = useState<FeedState>(() => feed_memory.recall() ?? first);
+  const { cards, next_cursor: cursor } = feed;
   const [failed, setFailed] = useState(false);
   const [loading, start_loading] = useTransition();
   const sentinel = useRef<HTMLDivElement>(null);
+  // The cursor already asked for. The observer and the button can both fire before the page
+  // arrives and renders; a failure clears it so that retrying works.
+  const requested = useRef<FeedCursor | null>(null);
+
+  // A list that grew is remembered for this page's history entry. A page that finishes loading
+  // after the visitor has left is not: its component is gone.
+  const started_as = useRef(feed);
+  useEffect(() => {
+    if (feed !== started_as.current) feed_memory.remember(history_entry(), feed);
+  }, [feed]);
 
   function load_more() {
-    if (!cursor) return;
+    if (!cursor || requested.current === cursor) return;
+    requested.current = cursor;
     start_loading(async () => {
       try {
         const page = await load_more_feed(cursor);
-        // A publish between two pages can repeat a card; ids are the identity.
-        setCards((shown) => {
-          const ids = new Set(shown.map((card) => card.id));
-          return [...shown, ...page.cards.filter((card) => !ids.has(card.id))];
-        });
-        setCursor(page.next_cursor);
+        set_feed((shown) => append_page(shown, page));
         setFailed(false);
       } catch {
         // The server's message is redacted in production, so there is nothing to show.
+        requested.current = null;
         setFailed(true);
       }
     });
