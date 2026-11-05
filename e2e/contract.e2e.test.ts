@@ -5,7 +5,7 @@
  * `cached` is the response-store contract: true means the page ends up a `HIT`, false means it is
  * never stored (junk slugs must not grow the store).
  */
-import { describe, expect, it } from "vite-plus/test";
+import { beforeAll, describe, expect, it } from "vite-plus/test";
 import { CONTENT_PAGES } from "../lib/content-pages";
 import { base, get, never_hit, seeded, until_hit } from "./helpers";
 
@@ -102,6 +102,12 @@ const cases: Case[] = [
 const locs = (sitemap: string) => [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]!);
 
 const applicable = cases.filter((c) => seeded || !c.seeded);
+
+// One failure up front beats 20 confusing ones when the database is not the seeded one.
+beforeAll(async () => {
+  if (base && seeded && (await get("/novica/pub-a")).status !== 200)
+    throw new Error("SEEDED=1 but /novica/pub-a is not 200: run scripts/seed-smoke.ts first");
+});
 
 describe.skipIf(!base)("public read path", { timeout: 30_000 }, () => {
   it.concurrent.for(applicable)("$path -> $status", async (c) => {
