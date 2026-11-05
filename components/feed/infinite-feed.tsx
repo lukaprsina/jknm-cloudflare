@@ -15,8 +15,8 @@ const MEMORY_ENTRIES = 5;
 const feed_memory = create_feed_memory({ read_entry: history_entry, max: MEMORY_ENTRIES });
 
 /**
- * The homepage list: the server-rendered first page, then more as the visitor
- * nears the end or presses the button.
+ * The homepage list: the server-rendered first page, then more as the visitor nears the end or
+ * presses the button.
  */
 export function InfiniteFeed({ first }: { first: FeedPage }) {
   // The server renders `first`; a reload finds the memory empty, so the client's first render

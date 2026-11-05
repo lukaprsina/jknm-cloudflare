@@ -3,7 +3,10 @@ import type { FeedPage } from "@/server/published/create-published";
 /** What the homepage list shows and where its next page starts. */
 export type FeedState = Pick<FeedPage, "cards" | "next_cursor">;
 
-/** The shown list plus a loaded page. A publish between two pages can repeat a card; ids are the identity. */
+/**
+ * The shown list plus a loaded page. A publish between two pages can repeat a card; ids are the
+ * identity.
+ */
 export function append_page(shown: FeedState, page: FeedPage): FeedState {
   const ids = new Set(shown.cards.map((card) => card.id));
   return {

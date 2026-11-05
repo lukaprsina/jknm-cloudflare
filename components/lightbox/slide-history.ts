@@ -1,9 +1,6 @@
 import { useEffect, useRef } from "react";
 import { lightbox_index, replace_lightbox_entry } from "../history-state";
 
-// The lightbox's history entry (see `../history-state`): open pushes it, swiping replaces it,
-// closing pops it with history.back(), and Forward reopens it.
-
 /** While closed, Forward onto a lightbox entry reopens the lightbox there. */
 export function useReopenOnForward(is_open: boolean, count: number, open_at: (i: number) => void) {
   const latest = useRef({ is_open, count, open_at });

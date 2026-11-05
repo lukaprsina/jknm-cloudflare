@@ -25,9 +25,15 @@ function lightbox_state(index: number): LightboxState {
   return { lightbox: index };
 }
 
+/** The state of any entry, which only the entry's own writer can vouch for. */
+function read_lightbox_state(history: HistoryLike): Partial<LightboxState> | null {
+  return history.state;
+}
+
 /**
  * Opening the lightbox adds an entry on the article's own URL, so Back (Android's especially)
- * closes it instead of leaving the article.
+ * closes it instead of leaving the article. Closing pops the entry with history.back(), and
+ * Forward onto it reopens the lightbox.
  *
  * The entry has no hash and no saved scroll position: the lightbox is an overlay, so moving
  * through its entries must never scroll the page (vinext restores a position only when the entry
@@ -42,12 +48,15 @@ export function replace_lightbox_entry(index: number, history: HistoryLike = win
   history.replaceState(lightbox_state(index), "");
 }
 
-/** The slide a lightbox entry shows, if the current entry is one for an article with `count` images. */
+/**
+ * The slide a lightbox entry shows, if the current entry is one for an article with `count`
+ * images.
+ */
 export function lightbox_index(
   count: number,
   history: HistoryLike = window.history,
 ): number | null {
-  const index: unknown = history.state?.lightbox;
+  const index: unknown = read_lightbox_state(history)?.lightbox;
   const valid = typeof index === "number" && Number.isInteger(index) && index >= 0 && index < count;
   return valid ? index : null;
 }
