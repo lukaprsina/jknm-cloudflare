@@ -166,11 +166,12 @@ function Block({
 export function ArticleBody({ blocks }: { blocks: PreparedBlock[] }) {
   // The first image is usually above the fold; lazy-loading it would delay the largest paint.
   const first_image = blocks.findIndex((block) => block.type === "image");
-  const images: LightboxImage[] = [];
-  const image_indexes = blocks.map((block) => {
-    if (block.type !== "image") return -1;
-    return images.push({ url: block.url, ...block.natural, caption: block.caption }) - 1;
-  });
+  const image_blocks = blocks.filter((block) => block.type === "image");
+  const images: LightboxImage[] = image_blocks.map((block) => ({
+    url: block.url,
+    ...block.natural,
+    caption: block.caption,
+  }));
   return (
     <LightboxProvider images={images}>
       {blocks.map((block, index) => (
@@ -178,7 +179,7 @@ export function ArticleBody({ blocks }: { blocks: PreparedBlock[] }) {
           key={index}
           block={block}
           eager={index === first_image}
-          image_index={image_indexes[index]}
+          image_index={image_blocks.findIndex((image) => image === block)}
         />
       ))}
     </LightboxProvider>

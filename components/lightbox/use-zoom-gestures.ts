@@ -39,9 +39,10 @@ export function useZoomGestures(
     let last_tap: { at: number; point: Point } | null = null;
 
     // The stage may not start at the window origin (the toolbar sits above it), so gesture
-    // points are made relative to the slide, which is what the zoom geometry is measured in.
+    // points are made relative to the slide (the image's positioned parent), which is what the
+    // zoom geometry is measured in.
     const local = (event: PointerEvent | WheelEvent): Point => {
-      const origin = element.parentElement!.getBoundingClientRect();
+      const origin = element.offsetParent!.getBoundingClientRect();
       return { x: event.clientX - origin.left, y: event.clientY - origin.top };
     };
 

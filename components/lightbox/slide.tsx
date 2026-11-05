@@ -3,24 +3,10 @@ import { useEffect, useState } from "react";
 import { Inline } from "@/components/inline";
 import { image_url } from "@/lib/image-url";
 import type { LightboxImage } from "./types";
-import { slide_layout } from "./slide-layout";
+import { PADDING, slide_layout } from "./slide-layout";
 import type { Size } from "./slide-layout";
 import { useZoomGestures } from "./use-zoom-gestures";
-import type { Zoom } from "./zoom";
-
-/** Width of an aside caption: 20 rem. */
-const ASIDE_REM = 20;
-
-function useRootFontSize(): number {
-  const [size, set_size] = useState(16);
-  useEffect(() => {
-    set_size(parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
-  }, []);
-  return size;
-}
-
-/** Gap between the content and the screen edge, in px. */
-const PADDING = 16;
+import { NO_ZOOM, type Zoom } from "./zoom";
 
 const caption_class = "px-3 py-2 text-sm leading-snug text-white/90 [&_a]:underline";
 
@@ -31,40 +17,48 @@ const caption_class = "px-3 py-2 text-sm leading-snug text-white/90 [&_a]:underl
 export function Slide({
   image,
   viewport,
+  aside_width,
   near,
   active,
-  zoom,
-  on_zoom,
+  on_zoomed,
   on_close,
 }: {
   image: LightboxImage;
   viewport: Size | null;
+  aside_width: number;
   near: boolean;
   active: boolean;
-  zoom: Zoom;
-  on_zoom: (next: Zoom) => void;
+  /** Tells the lightbox whether this slide is zoomed, so a drag pans instead of swiping. */
+  on_zoomed: (zoomed: boolean) => void;
   on_close: () => void;
 }) {
-  const aside_width = ASIDE_REM * useRootFontSize();
+  const [zoom, set_zoom_state] = useState<Zoom>(NO_ZOOM);
+  const set_zoom = (next: Zoom) => {
+    on_zoomed(next.scale > 1);
+    set_zoom_state(next);
+  };
+  // Leaving the slide resets its zoom. Done during render so it is never seen zoomed on return.
+  if (!active && zoom !== NO_ZOOM) set_zoom(NO_ZOOM);
   const [caption_height, set_caption_height] = useState<number | null>(null);
-  const [measurer, set_measurer] = useState<HTMLDivElement | null>(null);
+  const [caption_el, set_caption_el] = useState<HTMLDivElement | null>(null);
   const [img, set_img] = useState<HTMLImageElement | null>(null);
   const natural = { width: image.width, height: image.height };
   const has_caption = image.caption !== null && image.caption.length > 0;
 
-  // The measurer is as wide as the caption really is. A taller caption narrows the image and so
-  // the caption, which measures taller again; the height is capped in slide_layout, so it settles.
+  // The caption's full height at its real width: scrollHeight ignores the max-height cap, so the
+  // visible element measures itself. A taller caption narrows the image and so the caption, which
+  // measures taller again; the height is capped in slide_layout, so it settles.
   useEffect(() => {
-    if (!measurer) return;
-    const observer = new ResizeObserver(([entry]) => {
-      const height = entry.borderBoxSize[0].blockSize;
+    if (!caption_el) return;
+    const observer = new ResizeObserver(() => {
+      const height = caption_el.scrollHeight;
       set_caption_height((previous) =>
         previous !== null && Math.abs(previous - height) < 0.5 ? previous : height,
       );
     });
-    observer.observe(measurer);
+    observer.observe(caption_el);
     return () => observer.disconnect();
-  }, [measurer]);
+  }, [caption_el]);
 
   const layout =
     near && viewport
@@ -78,7 +72,7 @@ export function Slide({
         })
       : null;
   const geometry = layout && viewport ? { rect: layout.image_rect, viewport, natural } : null;
-  useZoomGestures(active ? img : null, geometry, zoom, on_zoom);
+  useZoomGestures(active ? img : null, geometry, zoom, set_zoom);
 
   const rect = layout?.image_rect;
   const caption_rect = layout?.caption_rect;
@@ -98,7 +92,7 @@ export function Slide({
             src={image_url(image.url, image.width)}
             alt=""
             draggable={false}
-            className="absolute max-w-none select-none"
+            className="absolute max-w-none bg-white/5 select-none"
             style={{
               left: rect.x,
               top: rect.y,
@@ -111,6 +105,7 @@ export function Slide({
           />
           {has_caption && caption_rect && (
             <div
+              ref={set_caption_el}
               className={cn(
                 "absolute touch-pan-y overflow-y-auto transition-opacity",
                 caption_class,
@@ -123,16 +118,6 @@ export function Slide({
                 opacity: zoomed || !measured ? 0 : 1,
                 pointerEvents: zoomed ? "none" : undefined,
               }}
-            >
-              <Inline nodes={image.caption!} />
-            </div>
-          )}
-          {has_caption && (
-            <div
-              ref={set_measurer}
-              aria-hidden
-              className={cn("invisible absolute top-0 left-0", caption_class)}
-              style={{ width: caption_rect?.width }}
             >
               <Inline nodes={image.caption!} />
             </div>

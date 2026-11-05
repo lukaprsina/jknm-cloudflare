@@ -15,8 +15,14 @@ export function LightboxProvider({
   children: React.ReactNode;
 }) {
   const [index, set_index] = useState<number | null>(null);
+  // The lightbox owns one history entry (#slika-N, same page), so the back button closes it.
+  // Both ends are here: the lightbox only asks for history.back() and closes on popstate.
+  const open = (at: number) => {
+    history.pushState(history.state, "", `#slika-${at + 1}`);
+    set_index(at);
+  };
   return (
-    <OpenContext value={set_index}>
+    <OpenContext value={open}>
       {children}
       {index !== null && (
         <Suspense fallback={null}>

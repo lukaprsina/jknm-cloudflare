@@ -9,10 +9,14 @@ import { Slide } from "./slide";
 import type { LightboxImage } from "./types";
 import { useElementSize } from "./use-element-size";
 import { useSwipeClose } from "./use-swipe-close";
-import { NO_ZOOM, type Zoom } from "./zoom";
+import { ASIDE_REM } from "./slide-layout";
 
 const arrow_class =
   "absolute top-1/2 hidden size-11 -translate-y-1/2 place-items-center rounded-full bg-black/40 text-white hover:bg-black/60 disabled:opacity-30 md:grid";
+
+function root_font_size(): number {
+  return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+}
 
 export default function Lightbox({
   images,
@@ -23,29 +27,28 @@ export default function Lightbox({
   index: number;
   on_close: () => void;
 }) {
-  // Closing first fades out; the parent unmounts us (and Base UI releases the scroll lock) after.
+  // Closing goes back one history entry (the provider pushed it on open); the popstate below
+  // starts the fade, and the parent unmounts us (releasing Base UI's scroll lock) after.
   const [open, set_open] = useState(true);
-  const request_close = () => set_open(false);
+  const request_close = () => history.back();
   const [popup, set_popup] = useState<HTMLDivElement | null>(null);
   const [stage, set_stage] = useState<HTMLDivElement | null>(null);
   const viewport = useElementSize(stage);
+  const aside_width = ASIDE_REM * root_font_size();
   const [embla_ref, embla] = useEmblaCarousel({ startSnap: index });
   const [active, set_active] = useState(index);
-  const [zoom, set_zoom_state] = useState<Zoom>(NO_ZOOM);
   // Embla reads this on every pointer-down; a ref, so toggling zoom never re-initialises it.
-  // Written together with the state so there is no render gap in which a drag could start.
   const zoomed = useRef(false);
-  const set_zoom = (next: Zoom) => {
-    zoomed.current = next.scale > 1;
-    set_zoom_state(next);
-  };
 
-  // Leaving a slide resets its zoom. Done during render so the next slide never flashes zoomed.
-  const [zoom_owner, set_zoom_owner] = useState(active);
-  if (zoom_owner !== active) {
-    set_zoom_owner(active);
-    set_zoom(NO_ZOOM);
-  }
+  // The photo's hash entry follows the slide, so Android's back button closes the lightbox.
+  useEffect(() => {
+    history.replaceState(history.state, "", `#slika-${active + 1}`);
+  }, [active]);
+  useEffect(() => {
+    const on_popstate = () => set_open(false);
+    window.addEventListener("popstate", on_popstate);
+    return () => window.removeEventListener("popstate", on_popstate);
+  }, []);
 
   useEffect(() => {
     if (!embla) return;
@@ -68,7 +71,7 @@ export default function Lightbox({
   return (
     <Dialog.Root
       open={open}
-      onOpenChange={set_open}
+      onOpenChange={(next) => !next && request_close()}
       onOpenChangeComplete={(is_open) => !is_open && on_close()}
     >
       <Dialog.Portal>
@@ -91,10 +94,10 @@ export default function Lightbox({
                     key={i}
                     image={image}
                     viewport={viewport}
+                    aside_width={aside_width}
                     near={Math.abs(i - active) <= 1}
                     active={i === active}
-                    zoom={i === active ? zoom : NO_ZOOM}
-                    on_zoom={set_zoom}
+                    on_zoomed={(is_zoomed) => (zoomed.current = is_zoomed)}
                     on_close={request_close}
                   />
                 ))}

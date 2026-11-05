@@ -29,6 +29,12 @@ function fit(image: Size, area: Size): Size {
 /** A caption below the image takes at most this share of the height; the rest scrolls. */
 const MAX_BELOW_CAPTION = 0.4;
 
+/** Width of an aside caption: 20 rem. */
+export const ASIDE_REM = 20;
+
+/** Gap between the content and the screen edge, in px. */
+export const PADDING = 16;
+
 /** The aside caption is only offered where a 20 rem pane can sit beside the image. */
 const ASIDE_MIN_VIEWPORT = 768;
 
