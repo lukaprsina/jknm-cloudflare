@@ -18,6 +18,8 @@ export default defineConfig({
     ...responseStore.applicationWorker,
     name: "jknm-cloudflare",
     entrypoint: "./worker/entry.ts",
+    // Apex only; www redirects to it (a Redirect Rule, no Worker code).
+    domains: ["jknm.org"],
     compatibilityDate: "2026-10-26",
     compatibilityFlags: ["nodejs_compat"],
     assets: {
