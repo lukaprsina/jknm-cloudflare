@@ -19,6 +19,22 @@ function index_in_state(count: number): number | null {
   return Number.isInteger(index) && index >= 0 && index < count ? index : null;
 }
 
+/**
+ * Stops the browser from restoring a scroll position when traversing history, for as long as the
+ * article is mounted. Its automatic restoration puts the page back where the lightbox entry was
+ * recorded (smoothly, as `html` is), on Forward and again on close. vinext still restores pages
+ * it navigated through, as those entries carry their own saved position.
+ */
+export function useManualScrollRestoration() {
+  useEffect(() => {
+    const previous = history.scrollRestoration;
+    history.scrollRestoration = "manual";
+    return () => {
+      history.scrollRestoration = previous;
+    };
+  }, []);
+}
+
 /** While closed, Forward onto a lightbox entry reopens the lightbox there. */
 export function useReopenOnForward(is_open: boolean, count: number, open_at: (i: number) => void) {
   const latest = useRef({ is_open, count, open_at });

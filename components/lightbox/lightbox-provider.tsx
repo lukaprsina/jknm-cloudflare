@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, lazy, Suspense, useContext, useState } from "react";
-import { push_slide_entry, useReopenOnForward } from "./slide-history";
+import { push_slide_entry, useManualScrollRestoration, useReopenOnForward } from "./slide-history";
 import type { LightboxImage } from "./types";
 
 const LightboxView = lazy(() => import("./lightbox"));
@@ -20,6 +20,7 @@ export function LightboxProvider({
     push_slide_entry(at);
     set_index(at);
   };
+  useManualScrollRestoration();
   useReopenOnForward(index !== null, images.length, set_index);
   return (
     <OpenContext value={open_from_click}>
