@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import { useEffect, useState } from "react";
 import { Inline } from "@/components/inline";
 import { image_url } from "@/lib/image-url";
@@ -51,12 +52,16 @@ export function Slide({
   const natural = { width: image.width, height: image.height };
   const has_caption = image.caption !== null && image.caption.length > 0;
 
-  // Measure the caption at the full-fit image width, which does not depend on the caption.
+  // The measurer is as wide as the caption really is. A taller caption narrows the image and so
+  // the caption, which measures taller again; the height is capped in slide_layout, so it settles.
   useEffect(() => {
     if (!measurer) return;
-    const observer = new ResizeObserver(([entry]) =>
-      set_caption_height(entry.borderBoxSize[0].blockSize),
-    );
+    const observer = new ResizeObserver(([entry]) => {
+      const height = entry.borderBoxSize[0].blockSize;
+      set_caption_height((previous) =>
+        previous !== null && Math.abs(previous - height) < 0.5 ? previous : height,
+      );
+    });
     observer.observe(measurer);
     return () => observer.disconnect();
   }, [measurer]);
@@ -72,17 +77,6 @@ export function Slide({
           padding: PADDING,
         })
       : null;
-  const fit_width =
-    near && viewport
-      ? slide_layout({
-          image: natural,
-          viewport,
-          has_caption: false,
-          caption_height: null,
-          padding: PADDING,
-          aside_width,
-        }).image_rect.width
-      : 0;
   const geometry = layout && viewport ? { rect: layout.image_rect, viewport, natural } : null;
   useZoomGestures(active ? img : null, geometry, zoom, on_zoom);
 
@@ -117,12 +111,12 @@ export function Slide({
           />
           {has_caption && caption_rect && (
             <div
-              className={`absolute overflow-y-auto transition-opacity ${caption_class}`}
+              className={cn("absolute overflow-y-auto transition-opacity", caption_class)}
               style={{
                 left: caption_rect.x,
                 top: caption_rect.y,
                 width: caption_rect.width,
-                maxHeight: layout.caption === "aside" ? caption_rect.height : undefined,
+                maxHeight: caption_rect.height,
                 opacity: zoomed || !measured ? 0 : 1,
                 pointerEvents: zoomed ? "none" : undefined,
               }}
@@ -134,8 +128,8 @@ export function Slide({
             <div
               ref={set_measurer}
               aria-hidden
-              className={`invisible absolute top-0 left-0 ${caption_class}`}
-              style={{ width: fit_width }}
+              className={cn("invisible absolute top-0 left-0", caption_class)}
+              style={{ width: caption_rect?.width }}
             >
               <Inline nodes={image.caption!} />
             </div>

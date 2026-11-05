@@ -17,8 +17,8 @@ const midpoint = (a: Point, b: Point) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) /
 
 /**
  * Binds wheel, mouse click, drag-pan, double-tap, pinch and arrow-key panning on `element`
- * to the pure zoom functions. Coordinates are client coordinates: the lightbox is full-screen
- * so they equal viewport coordinates.
+ * to the pure zoom functions. Points are relative to the slide, i.e. in viewport coordinates
+ * of the layout.
  */
 export function useZoomGestures(
   element: HTMLElement | null,
@@ -38,6 +38,13 @@ export function useZoomGestures(
     let multi_touch = false;
     let last_tap: { at: number; point: Point } | null = null;
 
+    // The stage may not start at the window origin (the toolbar sits above it), so gesture
+    // points are made relative to the slide, which is what the zoom geometry is measured in.
+    const local = (event: PointerEvent | WheelEvent): Point => {
+      const origin = element.parentElement!.getBoundingClientRect();
+      return { x: event.clientX - origin.left, y: event.clientY - origin.top };
+    };
+
     const apply = (next: (zoom: Zoom, geometry: ZoomGeometry) => Zoom) => {
       const { geometry, zoom, on_zoom } = latest.current;
       if (!geometry) return;
@@ -50,15 +57,13 @@ export function useZoomGestures(
     const on_wheel = (event: WheelEvent) => {
       event.preventDefault();
       const factor = Math.exp(-event.deltaY * (event.ctrlKey ? 0.01 : 0.0015));
-      apply((zoom, geometry) =>
-        zoom_to(zoom, geometry, zoom.scale * factor, { x: event.clientX, y: event.clientY }),
-      );
+      apply((zoom, geometry) => zoom_to(zoom, geometry, zoom.scale * factor, local(event)));
     };
 
     const on_down = (event: PointerEvent) => {
       if (event.pointerType === "mouse" && event.button !== 0) return;
       element.setPointerCapture(event.pointerId);
-      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      pointers.set(event.pointerId, local(event));
       if (pointers.size === 1) {
         moved = 0;
         multi_touch = false;
@@ -70,7 +75,7 @@ export function useZoomGestures(
     const on_move = (event: PointerEvent) => {
       const before = pointers.get(event.pointerId);
       if (!before) return;
-      const point = { x: event.clientX, y: event.clientY };
+      const point = local(event);
       const others = [...pointers].filter(([id]) => id !== event.pointerId).map(([, p]) => p);
       pointers.set(event.pointerId, point);
       moved += distance(before, point);
@@ -98,7 +103,7 @@ export function useZoomGestures(
       const is_tap =
         !multi_touch && pointers.size === 0 && moved < TAP_SLOP && event.type === "pointerup";
       if (!is_tap) return;
-      const point = { x: event.clientX, y: event.clientY };
+      const point = local(event);
       if (event.pointerType === "mouse") {
         apply((zoom, geometry) => toggle_zoom(zoom, geometry, point));
         return;

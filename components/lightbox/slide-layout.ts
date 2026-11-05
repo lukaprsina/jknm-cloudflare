@@ -26,6 +26,9 @@ function fit(image: Size, area: Size): Size {
   return { width: image.width * scale, height: image.height * scale };
 }
 
+/** A caption below the image takes at most this share of the height; the rest scrolls. */
+const MAX_BELOW_CAPTION = 0.4;
+
 /** The aside caption is only offered where a 20 rem pane can sit beside the image. */
 const ASIDE_MIN_VIEWPORT = 768;
 
@@ -42,8 +45,9 @@ function below_layout(
   image: Size,
   viewport: Size,
   full: Size,
-  caption_height: number,
+  measured_height: number,
 ): SlideLayout {
+  const caption_height = Math.min(measured_height, viewport.height * MAX_BELOW_CAPTION);
   const free_y = (viewport.height - full.height) / 2;
   const lift =
     free_y >= caption_height ? 0 : Math.min((caption_height - free_y) * 2, caption_height);

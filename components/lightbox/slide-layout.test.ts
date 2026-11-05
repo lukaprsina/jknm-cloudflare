@@ -180,3 +180,33 @@ describe("slide_layout padding", () => {
     expect(layout.image_rect.y).toBeGreaterThanOrEqual(16);
   });
 });
+
+describe("slide_layout with a very long caption below", () => {
+  const phone = { width: 360, height: 800 };
+
+  test("the caption takes at most 40% of the screen and scrolls beyond that", () => {
+    const layout = slide_layout({
+      image: { width: 800, height: 1200 },
+      viewport: phone,
+      has_caption: true,
+      caption_height: 700,
+      aside_width: 320,
+    });
+    expect(layout.caption_rect?.height).toBe(320);
+    const caption = layout.caption_rect!;
+    expect(caption.y + caption.height).toBeLessThanOrEqual(phone.height);
+    expect(layout.image_rect.y).toBeGreaterThanOrEqual(0);
+  });
+
+  test("a taller caption narrows the image, so the caption must be measured at the new width", () => {
+    const base = {
+      image: { width: 800, height: 1200 },
+      viewport: phone,
+      has_caption: true,
+      aside_width: 320,
+    };
+    const short = slide_layout({ ...base, caption_height: 100 });
+    const tall = slide_layout({ ...base, caption_height: 300 });
+    expect(tall.caption_rect!.width).toBeLessThan(short.caption_rect!.width);
+  });
+});

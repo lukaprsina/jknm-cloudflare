@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "cn";
 import { Dialog } from "@base-ui/react/dialog";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react";
@@ -61,7 +62,7 @@ export default function Lightbox({
     <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
         <Dialog.Popup
-          className="fixed inset-0 z-50 bg-black/90 outline-none"
+          className="fixed inset-0 z-50 bg-black/95 outline-none"
           onKeyDown={(event) => {
             if (event.key === "ArrowLeft") embla?.goToPrev();
             else if (event.key === "ArrowRight") embla?.goToNext();
@@ -70,7 +71,7 @@ export default function Lightbox({
           }}
         >
           <Dialog.Title className="sr-only">Galerija slik</Dialog.Title>
-          <div ref={set_stage} className="absolute inset-0">
+          <div ref={set_stage} className="absolute inset-x-0 top-14 bottom-0">
             <div ref={embla_ref} className="h-full overflow-hidden">
               <div className="flex h-full">
                 {images.map((image, i) => (
@@ -87,37 +88,39 @@ export default function Lightbox({
                 ))}
               </div>
             </div>
+            <button
+              type="button"
+              aria-label="Prejšnja slika"
+              disabled={active === 0}
+              onClick={() => embla?.goToPrev()}
+              className={cn(arrow_class, "left-3")}
+            >
+              <ChevronLeftIcon />
+            </button>
+            <button
+              type="button"
+              aria-label="Naslednja slika"
+              disabled={active === last}
+              onClick={() => embla?.goToNext()}
+              className={cn(arrow_class, "right-3")}
+            >
+              <ChevronRightIcon />
+            </button>
           </div>
           <p aria-live="polite" className="sr-only">
             {label}
           </p>
-          <p aria-hidden className="absolute top-4 left-4 text-sm text-white/80">
-            {active + 1} / {images.length}
-          </p>
-          <Dialog.Close
-            aria-label="Zapri"
-            className="absolute top-3 right-3 grid size-11 place-items-center rounded-full bg-black/40 text-white hover:bg-black/60"
-          >
-            <XIcon />
-          </Dialog.Close>
-          <button
-            type="button"
-            aria-label="Prejšnja slika"
-            disabled={active === 0}
-            onClick={() => embla?.goToPrev()}
-            className={`${arrow_class} left-3`}
-          >
-            <ChevronLeftIcon />
-          </button>
-          <button
-            type="button"
-            aria-label="Naslednja slika"
-            disabled={active === last}
-            onClick={() => embla?.goToNext()}
-            className={`${arrow_class} right-3`}
-          >
-            <ChevronRightIcon />
-          </button>
+          <div className="absolute inset-x-0 top-0 flex h-14 items-center justify-between px-4">
+            <p aria-hidden className="text-sm text-white/80">
+              {active + 1} / {images.length}
+            </p>
+            <Dialog.Close
+              aria-label="Zapri"
+              className="grid size-11 place-items-center rounded-full bg-black/40 text-white hover:bg-black/60"
+            >
+              <XIcon />
+            </Dialog.Close>
+          </div>
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>
