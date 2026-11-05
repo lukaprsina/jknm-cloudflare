@@ -5,56 +5,48 @@ import { load_more_feed } from "@/app/(site)/load-more-feed";
 import { Sponsors } from "@/components/shell/sponsors";
 import { Button } from "@/components/ui/button";
 import type { FeedPage } from "@/server/published/create-published";
+import { history_entry } from "../history-state";
 import { FeedCard } from "./feed-card";
+import { append_page, create_feed_memory, type FeedState } from "./feed-state";
 
-type Feed = Pick<FeedPage, "cards" | "next_cursor">;
-
-/**
- * The feeds that grew past the first page, by history entry. Back to such an entry shows the
- * list the visitor had, at full height, so the browser can restore the scroll position. A new
- * visit to `/` (the logo) is a new entry, so it starts from fresh server data. Memory only: a
- * reload starts over too, which also keeps hydration matching the server's HTML.
- */
-const grown_feeds = new Map<number, Feed>();
-
-/** vinext numbers every history entry; there is no public key for "this entry". */
-function history_entry(): number | null {
-  const index: unknown = history.state?.__vinext_historyIndex;
-  return typeof index === "number" ? index : null;
-}
+/** The server renders this component too, and has no history. */
+const current_entry = () => (typeof window === "undefined" ? null : history_entry());
+const feed_memory = create_feed_memory({ read_entry: current_entry, max: 5 });
 
 /**
  * The homepage list: the server-rendered first page, then more as the visitor
  * nears the end or presses the button.
  */
 export function InfiniteFeed({ first }: { first: FeedPage }) {
-  const [feed, set_feed] = useState<Feed>(() => {
-    const entry = typeof window === "undefined" ? null : history_entry();
-    return (entry !== null && grown_feeds.get(entry)) || first;
-  });
+  // The server renders `first`; a reload finds the memory empty, so the client's first render
+  // matches. Only a client-side Back finds a grown list here.
+  const [feed, set_feed] = useState<FeedState>(() => feed_memory.recall() ?? first);
   const { cards, next_cursor: cursor } = feed;
   const [failed, setFailed] = useState(false);
   const [loading, start_loading] = useTransition();
   const sentinel = useRef<HTMLDivElement>(null);
+  // The observer and the button can both fire before `loading` shows up in a render.
+  const in_flight = useRef(false);
+  const latest = useRef(feed);
+  latest.current = feed;
 
   function load_more() {
-    if (!cursor) return;
+    const { next_cursor } = latest.current;
+    if (!next_cursor || in_flight.current) return;
+    in_flight.current = true;
     const entry = history_entry(); // read now: the visitor may navigate away mid-load
     start_loading(async () => {
       try {
-        const page = await load_more_feed(cursor);
-        // A publish between two pages can repeat a card; ids are the identity.
-        const ids = new Set(cards.map((card) => card.id));
-        const grown = {
-          cards: [...cards, ...page.cards.filter((card) => !ids.has(card.id))],
-          next_cursor: page.next_cursor,
-        };
+        const grown = append_page(latest.current, await load_more_feed(next_cursor));
+        latest.current = grown;
         set_feed(grown);
-        if (entry !== null) grown_feeds.set(entry, grown);
+        feed_memory.remember(entry, grown);
         setFailed(false);
       } catch {
         // The server's message is redacted in production, so there is nothing to show.
         setFailed(true);
+      } finally {
+        in_flight.current = false;
       }
     });
   }
