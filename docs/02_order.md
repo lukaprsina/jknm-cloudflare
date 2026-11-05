@@ -56,6 +56,27 @@ Copy `server/article/*`, `server/author/*` (no Google sync), `lib/cache-policy.t
 
 Layout/nav/footer, homepage keyset feed, `/novica/<slug>`, static pages, robots/sitemap/OG, `/si` redirects (tests already green in the old repo). Images need a custom loader or image Worker (`/_next/image` is local-only).
 
+**Done (branch `feat/e2e-suite`):** the site is live on `https://jknm.org` (robots still disallow all; `jknm.si` stays on Vercel). Decisions the code does not show:
+
+- One suite, two oracles: `e2e/contract.e2e.test.ts` (hand-written expectations, replaced `scripts/smoke-public.ts`) and, to come, a parity file that compares against the live site. Both read `E2E_URL` (not `BASE_URL`: Vite replaces `process.env.BASE_URL` inside tests). `E2E_URL=<origin> vp test e2e` runs the cases that need no seed, on any origin; add `SEEDED=1` against a preview over `scripts/seed-smoke.ts` (it fails at once if the database is not seeded). A plain `vp test` skips them.
+- The response store writes asynchronously: a cacheable page can be `MISS` for a few seconds on a deployed Worker, so the suite polls for a `HIT` and, for junk, polls the same window and requires none. A stored page carries `Cache-Control: private, max-age=0, must-revalidate`.
+- One build, one origin: `NEXT_PUBLIC_DEPLOYMENT_ORIGIN` is inlined at build and sets canonical links, sitemap `<loc>`s and the sign-in fallback. Always deploy with it explicit: `NEXT_PUBLIC_DEPLOYMENT_ORIGIN=https://jknm.org pnpm deploy`. The suite checks it. A deploy without it baked `http://localhost:3000` into workers.dev once.
+- Domain: `domains: ["jknm.org"]` in `cloudflare.config.ts` (apex only). Without `workersDev` in the config the deploy turns workers.dev off, so there is one origin. A non-interactive deploy overwrites conflicting DNS records without asking; the Vercel `A` records were deleted by hand first (zone export in `~/.backups/jknm/`). `www.jknm.org` is a proxied placeholder `AAAA 100::` plus a zone Redirect Rule (301 to the apex, path and query kept). "Always Use HTTPS" is on.
+- Sign-in works on `https://jknm.org` (real Google round trip; `issuer` migration and backup done). Google Console has JS origins and redirect URIs for `jknm.si`, `www.jknm.si`, `jknm.org`, `www.jknm.org` and `localhost:5173`.
+- Out of scope here, moved to step 6: the purge test, a mutate route and the scratch Worker. `updateTag` throws outside a Server Action, so a route handler cannot exercise the real adapter. Concurrency is covered by spike 03; `FOR UPDATE` contention is an integration test against local Postgres (two `pg` connections through `create_articles`), still to write; the cron check waits for step 7.
+- Not proven: multi-colo cache behaviour; `updateTag` in a Server Action on a deployed Worker; deployed tag purge reaching `[slug]` routes and `/sitemap.xml`.
+
+**Cutover checklist** (`jknm.si`, from #4, #11, #14 and #23):
+
+- Pick the final origin (the live site is `https://www.jknm.si`), deploy with it, and add its hostnames as Custom Domains. The build serves one canonical origin only: redirect the other. Re-run `E2E_URL=<origin> vp test e2e` and the parity check after the deploy.
+- Open robots: `CRAWLING_OPEN = true` and the `Sitemap:` line (`page_url("/sitemap.xml")`) in `app/robots.ts`. It must not disallow `/si/`, or crawlers never see the redirects and 410s. Check `/robots.txt` after the deploy (the stored response can outlive the edit for up to an hour). The contract suite pins `Disallow: /` on the seeded preview only.
+- Ship `/arhiv` (step 7) and `/stik-z-nami` (step 8) first: `/si/etc/iskanje` and `/si/etc/kontakt` redirect to them and land on a 404 until then.
+- Cloudflare rate limiting / WAF rule on `/novica/*` and the other public dynamic routes (junk slugs are never stored, so each one reaches Postgres).
+- Spot-check the five production club pages' heading ids against the old site (`/klub#eticni-kodeks`); `title_to_slug` reproducing them is unverified. Confirm the five prod content rows have a primary slug.
+- `articles.excerpt` stays in prod until Vercel is gone, then `drizzle-kit push` after `scripts/backup-db.sh` (branch `db/drop-excerpt`).
+- Ticket #4's sitemap line says "primary slug (or first slug when none is primary)"; the module requires a primary slug.
+- Remove the Vercel project and its DNS once the traffic has moved; `jknm.org` mail records (`send`, `resend`) and `gradivo`, `markdowner` stay.
+
 ## 5. Media
 
 R2 binding, Images, upload/ingest, `reconcile-media`. Bucket copy with superslurper is a cutover step. Open: upload size vs Worker body limit (decide from docs); no spike done.
