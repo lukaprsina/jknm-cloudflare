@@ -7,19 +7,23 @@ import {
   type HistoryLike,
 } from "./history-state";
 
-/** A history that records what was written to it; `state` is the current entry's. */
+/** A history that keeps entries the way a browser does: push adds one, replace rewrites the current. */
 function fake_history(state: unknown = null) {
-  const calls: { kind: "push" | "replace"; state: unknown }[] = [];
+  const entries: { state: unknown; url: string | URL | null | undefined }[] = [
+    { state, url: undefined },
+  ];
   const history: HistoryLike = {
-    state,
-    pushState(next) {
-      calls.push({ kind: "push", state: next });
+    get state() {
+      return entries.at(-1)!.state;
     },
-    replaceState(next) {
-      calls.push({ kind: "replace", state: next });
+    pushState(next, _title, url) {
+      entries.push({ state: next, url });
+    },
+    replaceState(next, _title, url) {
+      entries[entries.length - 1] = { state: next, url };
     },
   };
-  return { history, calls };
+  return { history, entries };
 }
 
 describe("history_entry", () => {
@@ -33,31 +37,43 @@ describe("history_entry", () => {
 });
 
 describe("lightbox entries", () => {
-  test("opening pushes an entry marked with the slide, on the current URL", () => {
-    const { history, calls } = fake_history();
+  test("an entry opened at a slide reads back as that slide", () => {
+    const { history } = fake_history();
     push_lightbox_entry(2, history);
-    expect(calls).toEqual([{ kind: "push", state: { lightbox: 2 } }]);
+    expect(lightbox_index(5, history)).toBe(2);
   });
 
-  test("swiping replaces the entry instead of adding one", () => {
-    const { history, calls } = fake_history();
+  test("opening adds an entry, so Back has somewhere to go, and stays on the article's URL", () => {
+    const { history, entries } = fake_history();
+    push_lightbox_entry(0, history);
+    expect(entries).toHaveLength(2);
+    expect(entries[1]!.url).toBeUndefined();
+  });
+
+  test("swiping moves the same entry to the new slide instead of adding one", () => {
+    const { history, entries } = fake_history();
+    push_lightbox_entry(0, history);
     replace_lightbox_entry(3, history);
-    expect(calls).toEqual([{ kind: "replace", state: { lightbox: 3 } }]);
+    expect(entries).toHaveLength(2);
+    expect(lightbox_index(5, history)).toBe(3);
   });
 
-  test("an entry that carries a slide inside the article's images reads back as that slide", () => {
-    expect(lightbox_index(5, fake_history({ lightbox: 4 }).history)).toBe(4);
-    expect(lightbox_index(5, fake_history({ lightbox: 0 }).history)).toBe(0);
+  test("the entry before the lightbox opened is not a lightbox entry", () => {
+    const { history, entries } = fake_history({ __vinext_historyIndex: 1 });
+    push_lightbox_entry(0, history);
+    expect(lightbox_index(5, fake_history(entries[0]!.state).history)).toBeNull();
   });
 
-  test.each([
-    ["no state", null],
-    ["a page entry", { __vinext_historyIndex: 1 }],
-    ["past the last image", { lightbox: 5 }],
-    ["negative", { lightbox: -1 }],
-    ["not an integer", { lightbox: 1.5 }],
-    ["not a number", { lightbox: "1" }],
-  ])("reads null for %s", (_, state) => {
-    expect(lightbox_index(5, fake_history(state).history)).toBeNull();
+  test("a slide beyond the article's images is not shown", () => {
+    const { history } = fake_history();
+    push_lightbox_entry(5, history);
+    expect(lightbox_index(5, history)).toBeNull();
+    expect(lightbox_index(6, history)).toBe(5);
+  });
+
+  test.each([-1, 1.5, Number.NaN])("a slide number of %s is not shown", (slide) => {
+    const { history } = fake_history();
+    push_lightbox_entry(slide, history);
+    expect(lightbox_index(5, history)).toBeNull();
   });
 });

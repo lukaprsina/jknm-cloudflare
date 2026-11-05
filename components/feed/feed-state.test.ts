@@ -14,7 +14,7 @@ function card(id: string): FeedCard {
   };
 }
 
-const cursor = (id: string): FeedCursor => ({ id }) as unknown as FeedCursor;
+const cursor = (id: string): FeedCursor => ({ published_at: "2024-01-01 00:00:00+00", id });
 
 describe("append_page", () => {
   test("adds the page after the shown cards and moves on to the page's cursor", () => {
@@ -57,11 +57,18 @@ describe("create_feed_memory", () => {
     expect(m.recall()).toBeNull();
   });
 
-  test("with no entry number there is nothing to recall or remember", () => {
+  test("a page with no entry number recalls nothing, even after an entry was remembered", () => {
     const { at, memory: m } = memory();
+    m.remember(1, grown("a"));
     at.entry = null;
-    m.remember(null, grown("a"));
     expect(m.recall()).toBeNull();
+  });
+
+  test("remembering under no entry number keeps nothing", () => {
+    const { memory: m } = memory(1);
+    m.remember(1, grown("a"));
+    m.remember(null, grown("b"));
+    expect(m.recall()).toEqual(grown("a"));
   });
 
   test("keeps the most recent entries only", () => {

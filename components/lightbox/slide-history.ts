@@ -1,15 +1,8 @@
 import { useEffect, useRef } from "react";
 import { lightbox_index, replace_lightbox_entry } from "../history-state";
 
-/**
- * The lightbox owns one history entry on the article's own URL, so the back button (Android's
- * especially) closes it instead of leaving the article. Open pushes it, swiping replaces it,
- * closing pops it with history.back(), and Forward reopens it.
- *
- * The entry has no hash and no saved scroll position: the lightbox is an overlay, so moving
- * through its entries must never scroll the page (vinext restores a position only when the entry
- * carries one, or a hash target).
- */
+// The lightbox's history entry (see `../history-state`): open pushes it, swiping replaces it,
+// closing pops it with history.back(), and Forward reopens it.
 
 /** While closed, Forward onto a lightbox entry reopens the lightbox there. */
 export function useReopenOnForward(is_open: boolean, count: number, open_at: (i: number) => void) {

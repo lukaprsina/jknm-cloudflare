@@ -39,7 +39,10 @@ export function create_feed_memory({
       if (entry === null) return;
       grown.delete(entry);
       grown.set(entry, feed);
-      if (grown.size > max) grown.delete(grown.keys().next().value!);
+      for (const oldest of grown.keys()) {
+        if (grown.size <= max) break;
+        grown.delete(oldest);
+      }
     },
   };
 }

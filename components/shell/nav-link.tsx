@@ -16,14 +16,16 @@ export function NavLink({ href, ...props }: ComponentProps<typeof Link> & { href
  * when the new page's first element is already in view. A click that does not navigate this
  * tab (a new tab, a download, a handler that prevented it) leaves the scroll alone.
  */
-export function HomeLink({ onClick, ...props }: Omit<ComponentProps<typeof Link>, "href">) {
+export function HomeLink({ onClick, target, ...props }: Omit<ComponentProps<typeof Link>, "href">) {
   return (
     <Link
       href="/"
+      target={target}
       onClick={(event) => {
         onClick?.(event);
         const modified = event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
-        if (event.defaultPrevented || event.button !== 0 || modified) return;
+        const elsewhere = target !== undefined && target !== "_self";
+        if (event.defaultPrevented || event.button !== 0 || modified || elsewhere) return;
         window.scrollTo({ top: 0 });
       }}
       {...props}

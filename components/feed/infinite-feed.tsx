@@ -4,14 +4,15 @@ import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { load_more_feed } from "@/app/(site)/load-more-feed";
 import { Sponsors } from "@/components/shell/sponsors";
 import { Button } from "@/components/ui/button";
-import type { FeedPage } from "@/server/published/create-published";
+import type { FeedCursor, FeedPage } from "@/server/published/create-published";
 import { history_entry } from "../history-state";
 import { FeedCard } from "./feed-card";
 import { append_page, create_feed_memory, type FeedState } from "./feed-state";
 
-/** The server renders this component too, and has no history. */
-const current_entry = () => (typeof window === "undefined" ? null : history_entry());
-const feed_memory = create_feed_memory({ read_entry: current_entry, max: 5 });
+/** How many history entries keep their grown list; a few pages back is as far as anyone goes. */
+const MEMORY_ENTRIES = 5;
+
+const feed_memory = create_feed_memory({ read_entry: history_entry, max: MEMORY_ENTRIES });
 
 /**
  * The homepage list: the server-rendered first page, then more as the visitor
@@ -25,28 +26,29 @@ export function InfiniteFeed({ first }: { first: FeedPage }) {
   const [failed, setFailed] = useState(false);
   const [loading, start_loading] = useTransition();
   const sentinel = useRef<HTMLDivElement>(null);
-  // The observer and the button can both fire before `loading` shows up in a render.
-  const in_flight = useRef(false);
-  const latest = useRef(feed);
-  latest.current = feed;
+  // The cursor already asked for. The observer and the button can both fire before the page
+  // arrives and renders; a failure clears it so that retrying works.
+  const requested = useRef<FeedCursor | null>(null);
+
+  // A list that grew is remembered for this page's history entry. A page that finishes loading
+  // after the visitor has left is not: its component is gone.
+  const started_as = useRef(feed);
+  useEffect(() => {
+    if (feed !== started_as.current) feed_memory.remember(history_entry(), feed);
+  }, [feed]);
 
   function load_more() {
-    const { next_cursor } = latest.current;
-    if (!next_cursor || in_flight.current) return;
-    in_flight.current = true;
-    const entry = history_entry(); // read now: the visitor may navigate away mid-load
+    if (!cursor || requested.current === cursor) return;
+    requested.current = cursor;
     start_loading(async () => {
       try {
-        const grown = append_page(latest.current, await load_more_feed(next_cursor));
-        latest.current = grown;
-        set_feed(grown);
-        feed_memory.remember(entry, grown);
+        const page = await load_more_feed(cursor);
+        set_feed((shown) => append_page(shown, page));
         setFailed(false);
       } catch {
         // The server's message is redacted in production, so there is nothing to show.
+        requested.current = null;
         setFailed(true);
-      } finally {
-        in_flight.current = false;
       }
     });
   }
