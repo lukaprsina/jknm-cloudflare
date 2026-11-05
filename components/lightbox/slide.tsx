@@ -111,7 +111,10 @@ export function Slide({
           />
           {has_caption && caption_rect && (
             <div
-              className={cn("absolute overflow-y-auto transition-opacity", caption_class)}
+              className={cn(
+                "absolute touch-pan-y overflow-y-auto transition-opacity",
+                caption_class,
+              )}
               style={{
                 left: caption_rect.x,
                 top: caption_rect.y,

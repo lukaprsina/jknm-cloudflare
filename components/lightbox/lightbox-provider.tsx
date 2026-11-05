@@ -3,7 +3,7 @@
 import { createContext, lazy, Suspense, useContext, useState } from "react";
 import type { LightboxImage } from "./types";
 
-const ArticleLightbox = lazy(() => import("./lightbox"));
+const LightboxView = lazy(() => import("./lightbox"));
 const OpenContext = createContext<(index: number) => void>(() => {});
 
 /** Owns open/close state for one article's images. The list is plain data. */
@@ -14,13 +14,13 @@ export function LightboxProvider({
   images: LightboxImage[];
   children: React.ReactNode;
 }) {
-  const [index, setIndex] = useState<number | null>(null);
+  const [index, set_index] = useState<number | null>(null);
   return (
-    <OpenContext value={setIndex}>
+    <OpenContext value={set_index}>
       {children}
       {index !== null && (
         <Suspense fallback={null}>
-          <ArticleLightbox images={images} index={index} onClose={() => setIndex(null)} />
+          <LightboxView images={images} index={index} on_close={() => set_index(null)} />
         </Suspense>
       )}
     </OpenContext>

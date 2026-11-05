@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { Slide } from "./slide";
 import type { LightboxImage } from "./types";
 import { useElementSize } from "./use-element-size";
+import { useSwipeClose } from "./use-swipe-close";
 import { NO_ZOOM, type Zoom } from "./zoom";
 
 const arrow_class =
@@ -16,12 +17,16 @@ const arrow_class =
 export default function Lightbox({
   images,
   index,
-  onClose,
+  on_close,
 }: {
   images: LightboxImage[];
   index: number;
-  onClose: () => void;
+  on_close: () => void;
 }) {
+  // Closing first fades out; the parent unmounts us (and Base UI releases the scroll lock) after.
+  const [open, set_open] = useState(true);
+  const request_close = () => set_open(false);
+  const [popup, set_popup] = useState<HTMLDivElement | null>(null);
   const [stage, set_stage] = useState<HTMLDivElement | null>(null);
   const viewport = useElementSize(stage);
   const [embla_ref, embla] = useEmblaCarousel({ startSnap: index });
@@ -55,14 +60,21 @@ export default function Lightbox({
     };
   }, [embla]);
 
+  useSwipeClose(stage, popup, () => zoomed.current, request_close);
+
   const last = images.length - 1;
   const label = `Slika ${active + 1} od ${images.length}`;
 
   return (
-    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={set_open}
+      onOpenChangeComplete={(is_open) => !is_open && on_close()}
+    >
       <Dialog.Portal>
         <Dialog.Popup
-          className="fixed inset-0 z-50 bg-black/95 outline-none"
+          ref={set_popup}
+          className="fixed inset-0 z-50 bg-black/95 outline-none duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
           onKeyDown={(event) => {
             if (event.key === "ArrowLeft") embla?.goToPrev();
             else if (event.key === "ArrowRight") embla?.goToNext();
@@ -71,7 +83,7 @@ export default function Lightbox({
           }}
         >
           <Dialog.Title className="sr-only">Galerija slik</Dialog.Title>
-          <div ref={set_stage} className="absolute inset-x-0 top-14 bottom-0">
+          <div ref={set_stage} className="absolute inset-x-0 top-14 bottom-0 touch-none">
             <div ref={embla_ref} className="h-full overflow-hidden">
               <div className="flex h-full">
                 {images.map((image, i) => (
@@ -83,7 +95,7 @@ export default function Lightbox({
                     active={i === active}
                     zoom={i === active ? zoom : NO_ZOOM}
                     on_zoom={set_zoom}
-                    on_close={onClose}
+                    on_close={request_close}
                   />
                 ))}
               </div>
