@@ -40,7 +40,11 @@ export function useZoomGestures(
 
     const apply = (next: (zoom: Zoom, geometry: ZoomGeometry) => Zoom) => {
       const { geometry, zoom, on_zoom } = latest.current;
-      if (geometry) on_zoom(next(zoom, geometry));
+      if (!geometry) return;
+      const result = next(zoom, geometry);
+      // Several events can arrive before React re-renders; each must build on the last result.
+      latest.current.zoom = result;
+      on_zoom(result);
     };
 
     const on_wheel = (event: WheelEvent) => {
@@ -52,6 +56,7 @@ export function useZoomGestures(
     };
 
     const on_down = (event: PointerEvent) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
       element.setPointerCapture(event.pointerId);
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (pointers.size === 1) {

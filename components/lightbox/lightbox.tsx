@@ -25,7 +25,14 @@ export default function Lightbox({
   const viewport = useElementSize(stage);
   const [embla_ref, embla] = useEmblaCarousel({ startSnap: index });
   const [active, set_active] = useState(index);
-  const [zoom, set_zoom] = useState<Zoom>(NO_ZOOM);
+  const [zoom, set_zoom_state] = useState<Zoom>(NO_ZOOM);
+  // Embla reads this on every pointer-down; a ref, so toggling zoom never re-initialises it.
+  // Written together with the state so there is no render gap in which a drag could start.
+  const zoomed = useRef(false);
+  const set_zoom = (next: Zoom) => {
+    zoomed.current = next.scale > 1;
+    set_zoom_state(next);
+  };
 
   // Leaving a slide resets its zoom. Done during render so the next slide never flashes zoomed.
   const [zoom_owner, set_zoom_owner] = useState(active);
@@ -33,12 +40,6 @@ export default function Lightbox({
     set_zoom_owner(active);
     set_zoom(NO_ZOOM);
   }
-
-  // Embla reads this on every pointer-down; a ref, so toggling zoom never re-initialises it.
-  const zoomed = useRef(false);
-  useEffect(() => {
-    zoomed.current = zoom.scale > 1;
-  }, [zoom.scale]);
 
   useEffect(() => {
     if (!embla) return;
