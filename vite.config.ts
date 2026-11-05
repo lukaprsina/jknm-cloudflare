@@ -40,7 +40,7 @@ export default defineConfig({
     ],
   },
   test: {
-    exclude: [...configDefaults.exclude, ".references/**", ".cloudflare/**"],
+    exclude: [...configDefaults.exclude, ".references/**", ".cloudflare/**", "docs/private/**"],
   },
   // Component tests import through the tsconfig `@/*` paths and need JSX compiled
   // (tsconfig keeps it as `preserve` for the framework build).
