@@ -7,9 +7,14 @@ import { useEffect, useRef } from "react";
  */
 const PREFIX = "#slika-";
 
-/** Pushes the entry; call when the lightbox opens from a click. */
+/**
+ * Pushes the entry; call when the lightbox opens from a click. The entry records the scroll
+ * position in vinext's own keys: on Forward, vinext restores the entry's saved position, and
+ * without one it scrolls to the missing `#slika-N` target, i.e. the top (smoothly, as `html` is).
+ */
 export function push_slide_entry(index: number) {
-  history.pushState(history.state, "", PREFIX + (index + 1));
+  const scroll = { __vinext_scrollX: scrollX, __vinext_scrollY: scrollY };
+  history.pushState({ ...history.state, ...scroll }, "", PREFIX + (index + 1));
 }
 
 function index_in_hash(count: number): number | null {
