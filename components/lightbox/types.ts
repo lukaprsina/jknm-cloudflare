@@ -5,5 +5,7 @@ export type LightboxImage = {
   url: string;
   width: number;
   height: number;
+  /** Base64 ThumbHash shown while the picture loads. */
+  thumbhash?: string | null;
   caption: InlineNode[] | null;
 };

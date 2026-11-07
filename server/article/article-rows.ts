@@ -1,5 +1,6 @@
-import { asc, eq, sql, type SQL } from "drizzle-orm";
+import { asc, eq, type SQL } from "drizzle-orm";
 import { PUBLIC_AUTHOR_COLUMNS } from "../author/public-shape";
+import { media_id_of } from "../../lib/media-url";
 import type { Db, DbTransaction } from "../db";
 import { Article, ArticlesToAuthors, Media } from "../db/schema";
 
@@ -63,7 +64,6 @@ export async function soft_delete_article(tx: DbTransaction, article_id: string)
 /** A crop of an image, in percent of the image, as the editor reports it. */
 export interface ThumbnailCrop {
   image_url: string;
-  uploaded_custom_thumbnail?: boolean;
   unit: "%";
   x: number;
   y: number;
@@ -82,15 +82,12 @@ export async function resolve_thumbnail(tx: DbTransaction, crop: ThumbnailCrop |
     thumbnail_y: null,
     thumbnail_width: null,
     thumbnail_height: null,
-    uploaded_custom_thumbnail: null,
   };
   if (!crop) return cleared;
 
-  const [media] = await tx
-    .select({ id: Media.id })
-    .from(Media)
-    .where(sql`${Media.original}->>'url' = ${crop.image_url}`)
-    .limit(1);
+  const id = media_id_of(crop.image_url);
+  const media =
+    id && (await tx.query.Media.findFirst({ where: eq(Media.id, id), columns: { id: true } }));
   if (!media) return cleared;
 
   return {
@@ -99,7 +96,6 @@ export async function resolve_thumbnail(tx: DbTransaction, crop: ThumbnailCrop |
     thumbnail_y: crop.y,
     thumbnail_width: crop.width,
     thumbnail_height: crop.height,
-    uploaded_custom_thumbnail: crop.uploaded_custom_thumbnail ?? null,
   };
 }
 
@@ -119,7 +115,6 @@ export const REVISION_COPIED_COLUMNS = [
   "thumbnail_y",
   "thumbnail_width",
   "thumbnail_height",
-  "uploaded_custom_thumbnail",
 ] as const satisfies readonly (keyof ArticleRow)[];
 
 type CopiedColumn = (typeof REVISION_COPIED_COLUMNS)[number];

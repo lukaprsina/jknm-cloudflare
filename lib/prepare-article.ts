@@ -1,4 +1,5 @@
 import type { ArticleContentType } from "@/server/db/schema";
+import { media_id_of, type PageMedia } from "./media-url";
 import { parse_inline, strip_html_to_text, type InlineNode } from "./inline-html";
 import { parse_stored_block, type StoredListItem } from "./stored-block";
 import { title_to_slug } from "./title-to-slug";
@@ -26,6 +27,7 @@ export type PreparedBlock =
       height: number;
       /** The stored pixels, for the lightbox: zoom is measured against these. */
       natural: { width: number; height: number };
+      thumbhash: string | null;
       caption: InlineNode[] | null;
     }
   | {
@@ -58,10 +60,15 @@ const is_usable_dimension = (value: unknown): value is number =>
  * Turns stored editor content into what the renderer and the table of
  * contents need: inline HTML parsed once, heading ids assigned once, per-block
  * display decisions made. Pure, so it runs the same wherever it is called.
+ * `media` is the article's images by media id: an image block takes its size and
+ * ThumbHash from its row, and keeps the stored block size only when it has none.
  * Heading ids are the old site's, because relative links such as
  * `/klub#eticni-kodeks` depend on them.
  */
-export function prepare_article(content: ArticleContentType | null): PreparedArticle {
+export function prepare_article(
+  content: ArticleContentType | null,
+  media: PageMedia = {},
+): PreparedArticle {
   const headings: Heading[] = [];
   const seen = new Map<string, number>();
   const issued = new Set<string>();
@@ -102,11 +109,16 @@ export function prepare_article(content: ArticleContentType | null): PreparedArt
         };
       case "image": {
         const data = stored.data;
+        // The media row is the truth (it has the rotation fixed); the block's size is for external images.
+        const id = media_id_of(data.file.url);
+        const row = id ? media[id] : undefined;
+        const natural = row ?? data.file;
         return {
           type: "image",
           url: data.file.url,
-          ...display_size(data.file),
-          natural: { width: data.file.width, height: data.file.height },
+          ...display_size(natural),
+          natural: { width: natural.width, height: natural.height },
+          thumbhash: row?.thumbhash ?? null,
           caption: inline_or_null(data.caption),
         };
       }

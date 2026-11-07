@@ -79,7 +79,12 @@ async function write_article(
   // Reconcile against the persisted content, not the input: an omitted
   // `content` leaves the stored one in place, and keying off the input would
   // wipe every link on a content-less save.
-  await reconcile_media_to_articles(tx, article_id, updated.content_json);
+  await reconcile_media_to_articles(
+    tx,
+    article_id,
+    updated.content_json,
+    updated.thumbnail_media_id,
+  );
   return updated;
 }
 
@@ -322,7 +327,12 @@ export function create_articles({ db, emit }: { db: Db; emit: Emit }) {
             })),
           );
         }
-        await reconcile_media_to_articles(tx, draft.id, draft.content_json);
+        await reconcile_media_to_articles(
+          tx,
+          draft.id,
+          draft.content_json,
+          draft.thumbnail_media_id,
+        );
         if (source.status === "archived") await soft_delete_article(tx, source.id);
 
         // One action, two events: an archived source was just retired (the

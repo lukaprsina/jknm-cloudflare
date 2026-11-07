@@ -2,6 +2,7 @@ import { relations, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
   boolean,
+  char,
   check,
   index,
   integer,
@@ -187,48 +188,36 @@ export const article_status_enum = pgEnum("article_status", [
 export const article_kind_enum = pgEnum("article_kind", ["article", "content"]);
 export type ArticleKind = (typeof article_kind_enum.enumValues)[number];
 
-export interface MediaOriginalData {
-  url: string;
-  width: number;
-  height: number;
-  size_bytes: number;
-}
-
-export interface MediaVariantData {
-  format: "avif" | "jpeg";
-  width: number;
-  height: number;
-  url: string;
-  size_bytes: number;
-}
-
-export interface MediaSrcsetsData {
-  avif: string;
-  jpeg: string;
-  sizes: string;
-}
-
-export const Media = pgTable("media", {
-  id: uuid("id").primaryKey(),
-  filename: varchar("filename", { length: 255 }).notNull(),
-  content_type: varchar("content_type", { length: 255 }).notNull(),
-  size_bytes: integer("size_bytes").notNull(),
-  original: jsonb("original").$type<MediaOriginalData>().notNull(),
-  variants: jsonb("variants").$type<MediaVariantData[]>().notNull().default([]),
-  srcsets: jsonb("srcsets").$type<MediaSrcsetsData>(),
-  blur_placeholder: text("blur_placeholder"),
-  // sha256 of the original file's bytes. Null means "not backfilled yet" —
-  // set live by media ingest, which also uses it to reuse an existing row
-  // instead of inserting a dupe. Rows created before that check existed may
-  // still be null.
-  hash: varchar("hash", { length: 64 }).unique(),
-  created_at: timestamp("created_at", { withTimezone: true })
-    .default(sql`CURRENT_TIMESTAMP`)
-    .notNull(),
-  updated_at: timestamp("updated_at", { withTimezone: true })
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
+/**
+ * A stored file. Immutable: a row is never updated, so there is no `updated_at`.
+ * The object lives in R2 at `<id>/original.<ext>`; the URL is derived, never stored.
+ */
+export const Media = pgTable(
+  "media",
+  {
+    id: uuid("id").primaryKey(),
+    ext: text("ext").notNull(),
+    filename: text("filename").notNull(),
+    content_type: text("content_type").notNull(),
+    size_bytes: integer("size_bytes").notNull(),
+    /** Of the stored bytes; media ingest reuses the existing row instead of inserting a dupe. */
+    sha256: char("sha256", { length: 64 }).notNull().unique(),
+    /** Display size, after EXIF rotation; null for files that are not images. */
+    width: integer("width"),
+    height: integer("height"),
+    /** Base64 ThumbHash, the placeholder shown while the image loads. */
+    thumbhash: text("thumbhash"),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (media) => ({
+    has_both_sizes: check(
+      "media_has_both_sizes",
+      sql`(${media.width} IS NULL) = (${media.height} IS NULL)`,
+    ),
+  }),
+);
 
 export const Article = pgTable(
   "articles",
@@ -247,10 +236,6 @@ export const Article = pgTable(
     thumbnail_y: real("thumbnail_y"),
     thumbnail_width: real("thumbnail_width"),
     thumbnail_height: real("thumbnail_height"),
-    // Null means "unknown" (never backfilled and never resaved since) rather
-    // than "not custom" — distinct from `false`, so a legacy row nobody has
-    // touched yet doesn't silently masquerade as a known answer.
-    uploaded_custom_thumbnail: boolean("uploaded_custom_thumbnail"),
     supersedes_id: uuid("supersedes_id").references((): AnyPgColumn => Article.id),
     created_by: varchar("created_by", { length: 255 }).references(() => users.id),
     created_at: timestamp("created_at", { withTimezone: true })
@@ -338,6 +323,8 @@ export const MediaToArticles = pgTable(
     compoundKey: primaryKey({
       columns: [media_to_articles.article_id, media_to_articles.media_id],
     }),
+    // The key leads with article_id; this serves "which articles use this media" (orphan sweep).
+    media_id_idx: index("media_to_articles_media_id_idx").on(media_to_articles.media_id),
   }),
 );
 

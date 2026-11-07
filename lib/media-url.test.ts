@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { image_src, lightbox_natural } from "./media-url";
+import { image_src, lightbox_natural, media_id_of } from "./media-url";
 
 const ORIGIN = "https://gradivo.jknm.org";
 const KEY = "0b0f1c2e-1111-4222-8333-444455556666/original";
@@ -96,5 +96,24 @@ describe("lightbox_natural", () => {
   it("is the stored size up to the lightbox variant's 1600 px, scaled down beyond", () => {
     expect(lightbox_natural({ width: 1200, height: 800 })).toEqual({ width: 1200, height: 800 });
     expect(lightbox_natural({ width: 3200, height: 2400 })).toEqual({ width: 1600, height: 1200 });
+  });
+});
+
+describe("media_id_of", () => {
+  it("is the uuid of a stored media URL, whatever the extension", () => {
+    expect(media_id_of(`${ORIGIN}/${KEY}.jpg`)).toBe("0b0f1c2e-1111-4222-8333-444455556666");
+    expect(media_id_of(`${ORIGIN}/${KEY}.pdf`)).toBe("0b0f1c2e-1111-4222-8333-444455556666");
+  });
+
+  it("is null for anything else: other hosts, variants, transformed URLs, odd paths", () => {
+    for (const url of [
+      "https://example.com/0b0f1c2e-1111-4222-8333-444455556666/original.jpg",
+      `${ORIGIN}/0b0f1c2e-1111-4222-8333-444455556666/800.jpeg`,
+      `${ORIGIN}/cdn-cgi/image/width=960/${KEY}.jpg`,
+      `${ORIGIN}/naslovna.jpg`,
+      `${ORIGIN}/${KEY}.jpg?x=1`,
+    ]) {
+      expect(media_id_of(url)).toBeNull();
+    }
   });
 });

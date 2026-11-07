@@ -79,6 +79,31 @@ describe("prepare_article blocks", () => {
     expect(blocks[0]).toMatchObject({ natural: { width: 480, height: 320 } });
   });
 
+  describe("with the media rows of the article", () => {
+    const ID = "0b0f1c2e-1111-4222-8333-444455556666";
+    const url = `https://gradivo.jknm.org/${ID}/original.jpg`;
+    const image = (url: string) => ({
+      type: "image",
+      data: { file: { url, width: 480, height: 270 }, caption: "" },
+    });
+    const media = { [ID]: { width: 270, height: 480, thumbhash: "AAAA" } };
+
+    test("the row's size and ThumbHash win over the size stored in the block", () => {
+      const { blocks } = prepare_article({ blocks: [image(url)] }, media);
+      expect(blocks[0]).toMatchObject({
+        width: 540,
+        height: 960,
+        natural: { width: 270, height: 480 },
+        thumbhash: "AAAA",
+      });
+    });
+
+    test("an image without a row keeps the stored size and has no ThumbHash", () => {
+      const { blocks } = prepare_article({ blocks: [image("https://example.com/x.jpg")] }, media);
+      expect(blocks[0]).toMatchObject({ natural: { width: 480, height: 270 }, thumbhash: null });
+    });
+  });
+
   test("a table right-aligns columns that are mostly measurements", () => {
     const { blocks } = prepare({
       type: "table",

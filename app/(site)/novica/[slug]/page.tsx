@@ -35,7 +35,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
 export default async function Novica(props: Props) {
   const { slug, page } = await load(props);
-  const { headings, blocks } = prepare_article(page.content);
+  const { headings, blocks } = prepare_article(page.content, page.media);
 
   const structured_data = article_json_ld(
     page,

@@ -1,4 +1,29 @@
-import { MEDIA_ORIGIN } from "@/server/article/content-media";
+/** Origin media is served from. Existing `content_json` has these URLs baked in. */
+export const MEDIA_ORIGIN = "https://gradivo.jknm.org";
+
+const STORED_URL = new RegExp(
+  `^${MEDIA_ORIGIN.replace(/\./g, "\\.")}/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/original\\.\\w+$`,
+);
+
+/** Where a stored file is served from. */
+export function media_url({ id, ext }: { id: string; ext: string }) {
+  return `${MEDIA_ORIGIN}/${id}/original.${ext}`;
+}
+
+/** The `media` id a stored URL names, or null for any other URL (external images, variants, transforms). */
+export function media_id_of(url: string): string | null {
+  return STORED_URL.exec(url)?.[1] ?? null;
+}
+
+/** What the `media` row says about an image: display size (after EXIF rotation) and placeholder. Plain data. */
+export interface ImageInfo {
+  width: number;
+  height: number;
+  thumbhash: string | null;
+}
+
+/** The article's images by media id, as `media_id_of` names them. */
+export type PageMedia = Record<string, ImageInfo>;
 
 /** Where an image is shown; each variant is one fixed Cloudflare transform. */
 export type ImageVariant = "body" | "lightbox" | "card" | "card-featured" | "og";
@@ -17,7 +42,7 @@ export interface ImageSource {
   /** Stored pixel width; images no wider than the variant are served as stored. */
   width: number;
   /** Cards only: the part of the image to show. */
-  crop?: Crop;
+  crop?: Crop | null;
   /** Base64 ThumbHash, shown by `MediaImage` while the picture loads. */
   thumbhash?: string | null;
 }
@@ -58,7 +83,7 @@ function trim_of({ x, y, width, height }: Crop) {
 export function image_src({ url, width, crop }: ImageSource, variant: ImageVariant): string {
   const wanted = VARIANTS[variant];
   const transformable = url.startsWith(`${MEDIA_ORIGIN}/`) && TRANSFORMABLE.test(url);
-  const changes_something = crop !== undefined || width > wanted.width;
+  const changes_something = crop != null || width > wanted.width;
   if (process.env.NODE_ENV !== "production" || !transformable || !changes_something) return url;
 
   const options = [

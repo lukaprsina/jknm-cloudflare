@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vite-plus/test";
 import { eq, getTableColumns } from "drizzle-orm";
 import type { DomainEvent } from "../../lib/cache-policy";
-import { create_test_db } from "../db/test-helpers";
-import { Article, Author, Media, MediaToArticles, users } from "../db/schema";
+import { create_test_db, insert_media } from "../db/test-helpers";
+import { Article, Author, MediaToArticles, users } from "../db/schema";
 import { REVISION_COPIED_COLUMNS } from "./article-rows";
 import { create_articles } from "./articles";
 
@@ -93,21 +93,6 @@ describe("save", () => {
   });
 });
 
-async function add_media(db: Awaited<ReturnType<typeof setup>>["db"], filename: string) {
-  const url = `https://gradivo.jknm.org/${filename}`;
-  const [media] = await db
-    .insert(Media)
-    .values({
-      id: crypto.randomUUID(),
-      filename,
-      content_type: "image/jpeg",
-      size_bytes: 1,
-      original: { url, width: 1, height: 1, size_bytes: 1 },
-    })
-    .returning();
-  return { id: media!.id, url };
-}
-
 const image_block = (url: string) => ({ type: "image", data: { file: { url } } });
 
 describe("media reconciliation", () => {
@@ -120,8 +105,8 @@ describe("media reconciliation", () => {
 
   test("each save links exactly the media its content references, in block order", async () => {
     const { db, articles } = await setup();
-    const a = await add_media(db, "a.jpg");
-    const b = await add_media(db, "b.jpg");
+    const a = await insert_media(db);
+    const b = await insert_media(db);
     const draft = await articles.create({ title: "Jama" }, "admin");
     const save = (blocks: object[]) =>
       articles.save({
@@ -140,9 +125,41 @@ describe("media reconciliation", () => {
     expect(await links(db, draft.id)).toEqual([]);
   });
 
+  test("the thumbnail's media is linked after the content's, and unlinked when the thumbnail goes", async () => {
+    const { db, articles } = await setup();
+    const a = await insert_media(db);
+    const cover = await insert_media(db);
+    const draft = await articles.create({ title: "Jama" }, "admin");
+    const save = (thumbnail_url?: string) =>
+      articles.save({
+        article_id: draft.id,
+        article: {
+          title: "Jama",
+          content: { blocks: [image_block(a.url)] },
+          thumbnail_crop: thumbnail_url
+            ? {
+                image_url: thumbnail_url,
+                unit: "%",
+                x: 0,
+                y: 0,
+                width: 100,
+                height: 56,
+              }
+            : undefined,
+        },
+        author_ids: [],
+      });
+
+    await save(cover.url);
+    expect(await links(db, draft.id)).toEqual([a.id, cover.id]);
+
+    await save();
+    expect(await links(db, draft.id)).toEqual([a.id]);
+  });
+
   test("a save without content keeps the links of the stored content", async () => {
     const { db, articles } = await setup();
-    const a = await add_media(db, "a.jpg");
+    const a = await insert_media(db);
     const draft = await articles.create({ title: "Jama" }, "admin");
     await articles.save({
       article_id: draft.id,
@@ -168,7 +185,7 @@ describe("thumbnail", () => {
 
   test("a crop of uploaded media is stored; a crop of anything else clears the thumbnail", async () => {
     const { db, articles } = await setup();
-    const a = await add_media(db, "a.jpg");
+    const a = await insert_media(db);
     const draft = await articles.create({ title: "Jama" }, "admin");
     const save = (thumbnail_crop?: ReturnType<typeof crop>) =>
       articles.save({
@@ -188,6 +205,11 @@ describe("thumbnail", () => {
 
     const external = await save(crop("https://elsewhere.test/x.jpg"));
     expect(external?.thumbnail_media_id).toBeNull();
+
+    const unknown = await save(
+      crop(`https://gradivo.jknm.org/${crypto.randomUUID()}/original.jpg`),
+    );
+    expect(unknown?.thumbnail_media_id).toBeNull();
 
     await save(crop(a.url));
     const none = await save();
@@ -660,7 +682,7 @@ describe("what a revision copies from its source", () => {
 
   test("copies content, kind, date, excerpt and thumbnail crop", async () => {
     const { db, articles } = await setup();
-    const media = await add_media(db, "naslovna.jpg");
+    const media = await insert_media(db);
     const source = await publish_new(articles, "Zgodovina");
     const content = { blocks: [{ type: "paragraph", data: { text: "Besedilo" } }] };
     const published_at = new Date("2018-03-04T00:00:00Z");
@@ -676,7 +698,6 @@ describe("what a revision copies from its source", () => {
         thumbnail_y: 2,
         thumbnail_width: 3,
         thumbnail_height: 4,
-        uploaded_custom_thumbnail: true,
       })
       .where(eq(Article.id, source.id));
 
@@ -693,7 +714,6 @@ describe("what a revision copies from its source", () => {
       thumbnail_y: 2,
       thumbnail_width: 3,
       thumbnail_height: 4,
-      uploaded_custom_thumbnail: true,
     });
   });
 });

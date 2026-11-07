@@ -77,7 +77,7 @@ function Block({
         <figure className="my-6">
           <LightboxTrigger index={image_index}>
             <MediaImage
-              image={{ url: block.url, width: block.natural.width }}
+              image={{ url: block.url, width: block.natural.width, thumbhash: block.thumbhash }}
               variant="body"
               width={block.width}
               height={block.height}
@@ -170,6 +170,7 @@ export function ArticleBody({ blocks }: { blocks: PreparedBlock[] }) {
   const images: LightboxImage[] = image_blocks.map((block) => ({
     url: block.url,
     ...block.natural,
+    thumbhash: block.thumbhash,
     caption: block.caption,
   }));
   return (

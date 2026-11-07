@@ -14,3 +14,26 @@ export async function create_test_db(): Promise<Db> {
   await apply();
   return database;
 }
+
+/** A `media` row for tests: a 1x1 JPEG unless `overrides` say otherwise. Returns the row and its stored URL. */
+export async function insert_media(
+  db: Db,
+  overrides: Partial<typeof schema.Media.$inferInsert> = {},
+) {
+  const id = overrides.id ?? crypto.randomUUID();
+  const [media] = await db
+    .insert(schema.Media)
+    .values({
+      id,
+      ext: "jpg",
+      filename: "naslovna.jpg",
+      content_type: "image/jpeg",
+      size_bytes: 1,
+      sha256: id.replaceAll("-", "").padEnd(64, "0"),
+      width: 1,
+      height: 1,
+      ...overrides,
+    })
+    .returning();
+  return { ...media!, url: `https://gradivo.jknm.org/${id}/original.${media!.ext}` };
+}

@@ -1,7 +1,5 @@
+import { MEDIA_ORIGIN } from "../../lib/media-url";
 import type { ArticleContentType } from "../db/schema";
-
-/** Origin media is served from. Existing `content_json` has these URLs baked in. */
-export const MEDIA_ORIGIN = "https://gradivo.jknm.org";
 
 const MEDIA_URL = new RegExp(`${MEDIA_ORIGIN.replace(/\./g, "\\.")}/[^"'\\s\\\\<>)]+`, "g");
 

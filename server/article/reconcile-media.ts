@@ -1,35 +1,35 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
+import { media_id_of } from "../../lib/media-url";
 import type { DbTransaction } from "../db";
 import { Media, MediaToArticles, type ArticleContentType } from "../db/schema";
 import { media_urls_in_content } from "./content-media";
 
 /**
- * Makes `media_to_articles` mirror the media an article's content references.
- * Editor blocks only carry the media URL, so each URL is resolved back to a
- * `media` row through `original->>'url'`; URLs with no row (external images)
+ * Makes `media_to_articles` mirror the media an article uses: what its content
+ * references (each URL names its `media` id), then its thumbnail, so the orphan
+ * sweep needs only this table. Ids with no row (external images, deleted media)
  * are skipped. The diff is minimal: re-saving unchanged content writes nothing.
  */
 export async function reconcile_media_to_articles(
   tx: DbTransaction,
   article_id: string,
   content: ArticleContentType | null | undefined,
+  thumbnail_media_id: string | null,
 ) {
-  const urls = media_urls_in_content(content);
+  const wanted = new Set(media_urls_in_content(content).map(media_id_of));
+  wanted.delete(null);
+  if (thumbnail_media_id) wanted.add(thumbnail_media_id);
 
-  const url_to_media_id = new Map<string, string>();
-  if (urls.length > 0) {
-    const rows = await tx
-      .select({ id: Media.id, url: sql<string>`${Media.original}->>'url'` })
-      .from(Media)
-      .where(inArray(sql`${Media.original}->>'url'`, urls));
-    for (const row of rows) url_to_media_id.set(row.url, row.id);
-  }
-
+  const existing =
+    wanted.size === 0
+      ? []
+      : await tx
+          .select({ id: Media.id })
+          .from(Media)
+          .where(inArray(Media.id, [...wanted] as string[]));
+  const existing_ids = new Set(existing.map((row) => row.id));
   const desired = new Map<string, number>(); // media_id -> order
-  for (const url of urls) {
-    const media_id = url_to_media_id.get(url);
-    if (media_id && !desired.has(media_id)) desired.set(media_id, desired.size);
-  }
+  for (const id of wanted) if (id && existing_ids.has(id)) desired.set(id, desired.size);
 
   const current = new Map(
     (

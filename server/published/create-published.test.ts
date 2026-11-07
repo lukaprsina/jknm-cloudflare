@@ -3,7 +3,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { CONTENT_PAGES } from "../../lib/content-pages";
 import { create_articles } from "../article/articles";
 import { Article, ArticleSlug, Author, users } from "../db/schema";
-import { create_test_db } from "../db/test-helpers";
+import { create_test_db, insert_media } from "../db/test-helpers";
 import { create_published, type FeedCursor } from "./create-published";
 
 async function setup() {
@@ -129,6 +129,87 @@ describe("by_slug", () => {
     for (const slug of ["osnutek", "ni-je", "zgodovina", "a%b"]) {
       expect(await ctx.published.by_slug(slug)).toEqual({ outcome: "not_found" });
     }
+  });
+});
+
+describe("images", () => {
+  const image_block = (url: string) => ({
+    type: "image",
+    data: { file: { url, width: 1, height: 1 }, caption: "" },
+  });
+
+  test("a page carries the media rows of the images it uses, and its thumbnail with the crop", async () => {
+    const ctx = await setup();
+    const body = await insert_media(ctx.db, { width: 800, height: 600, thumbhash: "AAAA" });
+    const cover = await insert_media(ctx.db, { width: 2000, height: 1500, thumbhash: "BBBB" });
+    const draft = await ctx.articles.create({ title: "Jama" }, "admin");
+    await ctx.articles.publish({
+      article_id: draft.id,
+      article: {
+        title: "Jama",
+        content: { blocks: [image_block(body.url)] },
+        thumbnail_crop: { image_url: cover.url, unit: "%", x: 10, y: 20, width: 50, height: 28 },
+      },
+      author_ids: [],
+    });
+
+    const result = await ctx.published.by_slug("jama");
+
+    if (result.outcome !== "found") throw new Error("unreachable");
+    // The thumbnail's media is linked too, which is harmless: the map is only looked up by block URL.
+    expect(result.page.media).toEqual({
+      [body.id]: { width: 800, height: 600, thumbhash: "AAAA" },
+      [cover.id]: { width: 2000, height: 1500, thumbhash: "BBBB" },
+    });
+    expect(result.page.thumbnail).toEqual({
+      url: cover.url,
+      width: 2000,
+      height: 1500,
+      thumbhash: "BBBB",
+      crop: { x: 10, y: 20, width: 50, height: 28 },
+    });
+  });
+
+  test("a feed card carries the same thumbnail", async () => {
+    const ctx = await setup();
+    const cover = await insert_media(ctx.db, { width: 2000, height: 1500 });
+    const draft = await ctx.articles.create({ title: "Jama" }, "admin");
+    await ctx.articles.publish({
+      article_id: draft.id,
+      article: {
+        title: "Jama",
+        thumbnail_crop: { image_url: cover.url, unit: "%", x: 0, y: 0, width: 100, height: 56 },
+      },
+      author_ids: [],
+    });
+
+    const { cards } = await ctx.published.feed({ limit: 5 });
+
+    expect(cards[0]!.thumbnail).toEqual({
+      url: cover.url,
+      width: 2000,
+      height: 1500,
+      thumbhash: null,
+      crop: { x: 0, y: 0, width: 100, height: 56 },
+    });
+  });
+
+  test("a thumbnail that is not an image has none", async () => {
+    const ctx = await setup();
+    const pdf = await insert_media(ctx.db, { ext: "pdf", width: null, height: null });
+    const draft = await ctx.articles.create({ title: "Jama" }, "admin");
+    await ctx.articles.publish({
+      article_id: draft.id,
+      article: {
+        title: "Jama",
+        thumbnail_crop: { image_url: pdf.url, unit: "%", x: 0, y: 0, width: 100, height: 56 },
+      },
+      author_ids: [],
+    });
+
+    const { cards } = await ctx.published.feed({ limit: 5 });
+
+    expect(cards[0]!.thumbnail).toBeNull();
   });
 });
 
