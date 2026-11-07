@@ -37,8 +37,8 @@ export default defineConfig({
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
       MEDIA: bindings.r2({ name: "jknm-media" }),
-      // Direct Supabase host, caching disabled (checked with `cf hyperdrive get`).
-      HYPERDRIVE: bindings.hyperdrive({ id: "19395203187c415ba1df0ede2a0f3b0d" }),
+      // Direct Supabase host of the new-shape database, caching disabled (checked with `cf hyperdrive get`).
+      HYPERDRIVE: bindings.hyperdrive({ id: "a32e431c4a254188ab6580604760a966" }),
       QUEUE: bindings.queue({ name: "jknm-search" }),
       BETTER_AUTH_SECRET: bindings.secret(),
       GOOGLE_CLIENT_ID: bindings.secret(),
