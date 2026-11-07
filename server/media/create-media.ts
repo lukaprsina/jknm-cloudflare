@@ -2,7 +2,7 @@ import { and, eq, lt, notExists } from "drizzle-orm";
 import type { Db } from "../db";
 import { Media, MediaToArticles } from "../db/schema";
 import { ChecksumMismatch, type ImageInspector, type MediaBucket } from "./ports";
-import type { Upload } from "./upload-request";
+import { is_image, type Upload } from "./upload-request";
 
 export type MediaRow = typeof Media.$inferSelect;
 
@@ -56,8 +56,9 @@ export function create_media({
 
     const id = crypto.randomUUID();
     const key = key_of({ id, ext: upload.ext });
+    let stored: { size: number };
     try {
-      await bucket.put(key, body, upload);
+      stored = await bucket.put(key, body, upload);
     } catch (error) {
       if (error instanceof ChecksumMismatch) {
         return rejected("Prenos je bil poškodovan, poskusite znova.");
@@ -65,9 +66,9 @@ export function create_media({
       throw error;
     }
 
-    const is_image = upload.content_type.startsWith("image/");
-    const size = is_image ? await inspect_image(key, upload) : null;
-    if (is_image && !size) {
+    const image = is_image(upload.content_type);
+    const size = image ? await inspect_image(key, upload) : null;
+    if (image && !size) {
       await bucket.delete(key);
       return rejected("Datoteka ni veljavna slika.");
     }
@@ -79,11 +80,11 @@ export function create_media({
         ext: upload.ext,
         filename: upload.filename,
         content_type: upload.content_type,
-        size_bytes: upload.length,
+        size_bytes: stored.size,
         sha256: upload.sha256,
         width: size?.width ?? null,
         height: size?.height ?? null,
-        thumbhash: is_image ? upload.thumbhash : null,
+        thumbhash: image ? upload.thumbhash : null,
       })
       .onConflictDoNothing({ target: Media.sha256 })
       .returning();

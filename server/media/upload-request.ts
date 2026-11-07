@@ -15,6 +15,8 @@ const ALLOWED_TYPES = {
 export const MAX_FILE_BYTES = 100 * 1024 * 1024;
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 
+export const is_image = (content_type: string) => content_type.startsWith("image/");
+
 /** A validated `PUT /api/media`: everything `create_media` needs besides the body. */
 export interface Upload {
   filename: string;
@@ -41,7 +43,7 @@ const reject = (status: Rejection["status"], message: string): ParsedUpload => (
 
 const SHA256 = /^[0-9a-f]{64}$/;
 /** A ThumbHash is 25 to 35 bytes, so at most 48 base64 characters. */
-const THUMBHASH = /^[A-Za-z0-9+/]{8,64}={0,2}$/;
+const THUMBHASH = /^[A-Za-z0-9+/]{8,48}={0,2}$/;
 
 /**
  * Checks the upload before any byte is read. R2 needs the body length up
@@ -60,13 +62,12 @@ export function parse_upload_request({
     return reject(415, "Ta vrsta datoteke ni dovoljena.");
   }
   const ext = ALLOWED_TYPES[content_type as keyof typeof ALLOWED_TYPES];
-  const is_image = content_type.startsWith("image/");
+  const image = is_image(content_type);
 
   if (content_length === null) return reject(411, "Manjka velikost datoteke.");
   if (!/^[1-9]\d*$/.test(content_length)) return reject(400, "Neveljavna velikost datoteke.");
   const length = Number(content_length);
-  if (is_image && length > MAX_IMAGE_BYTES)
-    return reject(413, "Slika je prevelika (največ 20 MB).");
+  if (image && length > MAX_IMAGE_BYTES) return reject(413, "Slika je prevelika (največ 20 MB).");
   if (length > MAX_FILE_BYTES) return reject(413, "Datoteka je prevelika (največ 100 MB).");
 
   const sha256 = query.get("sha256") ?? "";
@@ -75,7 +76,7 @@ export function parse_upload_request({
   const filename = (query.get("filename") ?? "").trim();
   if (filename === "" || filename.length > 255) return reject(400, "Neveljavno ime datoteke.");
 
-  const thumbhash = is_image ? query.get("thumbhash") : null;
+  const thumbhash = image ? query.get("thumbhash") : null;
   if (thumbhash !== null && !THUMBHASH.test(thumbhash)) {
     return reject(400, "Neveljaven predogled slike.");
   }
