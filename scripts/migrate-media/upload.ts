@@ -16,6 +16,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { stored_object_headers } from "../../server/media/object-headers";
 import { STAGING_DIR, type ManifestEntry } from "./config";
 
 const CONCURRENCY = 8;
@@ -51,23 +52,17 @@ async function already_stored(key: string, sha256: string) {
 async function upload(entry: ManifestEntry) {
   const key = `${entry.id}/original.${entry.ext}`;
   if (await already_stored(key, entry.sha256)) return false;
-  const is_image = entry.content_type.startsWith("image/");
-  // RFC 5987 leaves ' ( ) * unescaped in encodeURIComponent's output; escape them too.
-  const filename = encodeURIComponent(entry.filename).replace(
-    /['()*]/g,
-    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
-  );
+  const headers = stored_object_headers(entry);
   await client.send(
     new PutObjectCommand({
       Bucket: bucket,
       Key: key,
       Body: await readFile(join(STAGING_DIR, "files", key)),
       ContentType: entry.content_type,
-      CacheControl: "public, max-age=31536000, immutable",
-      ContentDisposition: is_image ? undefined : `inline; filename*=UTF-8''${filename}`,
+      CacheControl: headers.cache_control,
+      ContentDisposition: headers.content_disposition,
       ChecksumSHA256: Buffer.from(entry.sha256, "hex").toString("base64"),
-      // S3 metadata is ASCII, so the filename is percent-encoded.
-      Metadata: { sha256: entry.sha256, filename },
+      Metadata: headers.metadata,
     }),
   );
   return true;

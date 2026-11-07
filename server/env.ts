@@ -9,6 +9,8 @@ import { z } from "zod";
  */
 const schema = z.object({
   HYPERDRIVE: z.object({ connectionString: z.string().min(1) }),
+  MEDIA: z.custom<R2Bucket>((value) => typeof value === "object" && value !== null),
+  IMAGES: z.custom<ImagesBinding>((value) => typeof value === "object" && value !== null),
   BETTER_AUTH_SECRET: z.string().min(32),
   GOOGLE_CLIENT_ID: z.string().min(1),
   GOOGLE_CLIENT_SECRET: z.string().min(1),

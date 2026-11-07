@@ -36,6 +36,7 @@ export default defineConfig({
       ...responseStore.applicationWorker.env,
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
+      MEDIA: bindings.r2({ name: "jknm-media" }),
       // Direct Supabase host, caching disabled (checked with `cf hyperdrive get`).
       HYPERDRIVE: bindings.hyperdrive({ id: "19395203187c415ba1df0ede2a0f3b0d" }),
       QUEUE: bindings.queue({ name: "jknm-search" }),
