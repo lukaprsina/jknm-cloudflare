@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { PublishedPage } from "@/server/published/create-published";
-import { image_url } from "./image-url";
+import { image_src } from "./media-url";
 
 /**
  * Title, description, canonical URL and social preview of a published page.
@@ -25,7 +25,7 @@ export function published_metadata(
         modifiedTime: page.modified_at,
       }),
       // No key at all without a thumbnail, so the default preview image (#10) can apply.
-      ...(page.thumbnail && { images: [image_url(page.thumbnail.url, 1200)] }),
+      ...(page.thumbnail && { images: [image_src(page.thumbnail, "og")] }),
     },
   };
 }

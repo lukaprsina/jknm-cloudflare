@@ -1,4 +1,5 @@
 import { Inline } from "@/components/inline";
+import { MediaImage } from "@/components/media-image";
 import { LightboxProvider, LightboxTrigger } from "@/components/lightbox/lightbox-provider";
 import {
   Table,
@@ -8,7 +9,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { image_url } from "@/lib/image-url";
 import type { LightboxImage } from "@/components/lightbox/types";
 import type { InlineNode } from "@/lib/inline-html";
 import type { ListItem, PreparedBlock } from "@/lib/prepare-article";
@@ -76,9 +76,9 @@ function Block({
       return (
         <figure className="my-6">
           <LightboxTrigger index={image_index}>
-            {/* oxlint-disable-next-line next/no-img-element -- images skip the framework optimizer */}
-            <img
-              src={image_url(block.url, block.width)}
+            <MediaImage
+              image={{ url: block.url, width: block.natural.width }}
+              variant="body"
               width={block.width}
               height={block.height}
               alt=""

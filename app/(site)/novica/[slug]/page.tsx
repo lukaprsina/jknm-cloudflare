@@ -3,7 +3,7 @@ import { permanentRedirect } from "next/navigation";
 import { ArticleBody } from "@/components/article-body";
 import { ArticleLayout } from "@/components/article-layout";
 import { article_path, page_url } from "@/lib/domains";
-import { image_url } from "@/lib/image-url";
+import { image_src } from "@/lib/media-url";
 import { article_json_ld, json_ld } from "@/lib/json-ld";
 import { prepare_article } from "@/lib/prepare-article";
 import { not_found_uncached } from "@/lib/not-found-uncached";
@@ -40,7 +40,7 @@ export default async function Novica(props: Props) {
   const structured_data = article_json_ld(
     page,
     page_url(article_path(slug)),
-    page.thumbnail ? image_url(page.thumbnail.url, 1200) : undefined,
+    page.thumbnail ? image_src(page.thumbnail, "og") : undefined,
   );
 
   return (

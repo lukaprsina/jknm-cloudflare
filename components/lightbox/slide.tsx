@@ -1,7 +1,7 @@
 import { cn } from "cn";
 import { useEffect, useState } from "react";
 import { Inline } from "@/components/inline";
-import { image_url } from "@/lib/image-url";
+import { MediaImage } from "@/components/media-image";
 import type { LightboxImage } from "./types";
 import { PADDING, slide_layout } from "./slide-layout";
 import type { Size } from "./slide-layout";
@@ -89,9 +89,10 @@ export function Slide({
     >
       {layout && rect && (
         <>
-          <img
+          <MediaImage
             ref={set_img}
-            src={image_url(image.url, image.width)}
+            image={image}
+            variant="lightbox"
             alt=""
             draggable={false}
             className="absolute max-w-none bg-white/5 select-none"

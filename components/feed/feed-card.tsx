@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { article_path } from "@/lib/domains";
-import { image_url } from "@/lib/image-url";
+import { MediaImage } from "@/components/media-image";
 import { cn } from "@/lib/utils";
 import type { FeedCard as Card } from "@/server/published/create-published";
 
@@ -20,8 +20,9 @@ export function FeedCard({ card, featured = false }: { card: Card; featured?: bo
       )}
     >
       {card.thumbnail && (
-        <img
-          src={image_url(card.thumbnail.url, featured ? 1200 : 600)}
+        <MediaImage
+          image={card.thumbnail}
+          variant={featured ? "card-featured" : "card"}
           width={card.thumbnail.width}
           height={card.thumbnail.height}
           alt=""
