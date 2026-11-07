@@ -20,7 +20,7 @@ export interface ManifestEntry {
   content_type: string;
   size_bytes: number;
   sha256: string;
-  /** Display size after EXIF rotation; null for files that are not images. */
+  /** Natural size: stored pixels after EXIF rotation; null for files that are not images. */
   width: number | null;
   height: number | null;
   thumbhash: string | null;

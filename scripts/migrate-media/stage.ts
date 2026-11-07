@@ -1,5 +1,5 @@
 /**
- * Step 2 of the media migration: copies the listed originals from the bucket
+ * Step 3 of the migration (PLAN-media): copies the listed originals from the bucket
  * snapshot into the staging directory, strips GPS from the ones that have it,
  * and measures every image. Writes `<staging>/manifest.json`, the input of
  * `upload.ts` and `build-db.ts`. Usage: vpx scripts/migrate-media/stage.ts
@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { rgbaToThumbHash } from "thumbhash";
 import { SNAPSHOT_DIR, STAGING_DIR, type ManifestEntry } from "./config";
-import { display_size } from "./plan";
+import { natural_size } from "./plan";
 
 const run = promisify(execFile);
 const CONCURRENCY = 8;
@@ -68,6 +68,8 @@ async function measure(path: string, scratch: string) {
     frame,
   ]);
   const [width, height, orientation] = stdout.trim().split(" ").map(Number);
+  // No EXIF tag leaves the third field empty: treat it as upright.
+  const turned = orientation || 1;
   // `-auto-orient` bakes the rotation in, so the hash matches what is displayed.
   const rgba = join(scratch, "pixels.rgba");
   const { stdout: small } = await run("magick", [
@@ -85,7 +87,7 @@ async function measure(path: string, scratch: string) {
   ]);
   const [w, h] = small.split(" ").map(Number);
   const thumbhash = Buffer.from(rgbaToThumbHash(w, h, await readFile(rgba))).toString("base64");
-  return { ...display_size({ width, height, orientation }), thumbhash };
+  return { ...natural_size({ width, height, orientation: turned }), thumbhash };
 }
 
 async function stage(entry: ListEntry, scratch: string) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { display_size, select_media } from "./plan";
+import { natural_size, select_media } from "./plan";
 
 const row = (id: string) => ({ id });
 
@@ -20,10 +20,10 @@ describe("select_media", () => {
   });
 });
 
-describe("display_size", () => {
+describe("natural_size", () => {
   it("is the stored size for upright images", () => {
     for (const orientation of [undefined, 1, 2, 3, 4]) {
-      expect(display_size({ width: 480, height: 270, orientation })).toEqual({
+      expect(natural_size({ width: 480, height: 270, orientation })).toEqual({
         width: 480,
         height: 270,
       });
@@ -32,7 +32,7 @@ describe("display_size", () => {
 
   it("swaps width and height for the quarter-turn orientations", () => {
     for (const orientation of [5, 6, 7, 8]) {
-      expect(display_size({ width: 480, height: 270, orientation })).toEqual({
+      expect(natural_size({ width: 480, height: 270, orientation })).toEqual({
         width: 270,
         height: 480,
       });

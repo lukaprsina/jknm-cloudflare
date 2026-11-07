@@ -1,5 +1,5 @@
 /**
- * Step 4 of the media migration: turns a restored prod dump into the database
+ * Step 5 of the migration (PLAN-media): turns a restored prod dump into the database
  * the new code reads. Run it on a fresh restore, once.
  *
  *  - the old `media` table is replaced by the new one (DDL from `schema.ts` through `drizzle-kit push`,
@@ -25,6 +25,14 @@ import { AUDIT_DIR, STAGING_DIR, type ManifestEntry } from "./config";
 
 const database_url = process.env.DATABASE_URL;
 if (!database_url) throw new Error("Missing DATABASE_URL");
+
+// This drops and rebuilds tables: only ever on a restored copy, never on prod.
+const { hostname } = new URL(database_url);
+if (!["localhost", "127.0.0.1"].includes(hostname) && process.env.ALLOW_REMOTE_DB !== hostname) {
+  throw new Error(
+    `${hostname} is not local: rerun with ALLOW_REMOTE_DB=${hostname} if it is a restored copy`,
+  );
+}
 
 const read_json = (path: string) => JSON.parse(readFileSync(path, "utf8"));
 const manifest: ManifestEntry[] = read_json(join(STAGING_DIR, "manifest.json"));
@@ -151,6 +159,9 @@ for (const old of parked) {
     crop = {};
     dropped_by_status[old.status] = (dropped_by_status[old.status] ?? 0) + 1;
   }
+  if (thumbnail_media_id === null && old.status !== "deleted") {
+    throw new Error(`${old.article_id} (${old.status}) lost its thumbnail`);
+  }
   tally[kind] = (tally[kind] ?? 0) + 1;
   await db
     .update(schema.Article)
@@ -174,6 +185,10 @@ for (const article of articles) {
 
 // 7. Nothing left over.
 if (!push().includes("No changes detected")) throw new Error("schema differs from schema.ts");
+const checks = await rows<{ conname: string }>(
+  sql`select conname from pg_constraint where conrelid = 'media'::regclass and conname = 'media_has_both_sizes'`,
+);
+if (checks.length !== 1) throw new Error("media_has_both_sizes is missing");
 console.log({
   media: manifest.length,
   rotated,

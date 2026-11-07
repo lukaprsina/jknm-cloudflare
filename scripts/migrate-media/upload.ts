@@ -1,5 +1,5 @@
 /**
- * Step 3 of the media migration: uploads the staged files to the R2 bucket
+ * Step 4 of the migration (PLAN-media): uploads the staged files to the R2 bucket
  * over the S3 API. R2 checks each body against its SHA-256 on write, and a
  * rerun skips objects already stored with the same hash.
  *
@@ -52,7 +52,11 @@ async function upload(entry: ManifestEntry) {
   const key = `${entry.id}/original.${entry.ext}`;
   if (await already_stored(key, entry.sha256)) return false;
   const is_image = entry.content_type.startsWith("image/");
-  const filename = encodeURIComponent(entry.filename);
+  // RFC 5987 leaves ' ( ) * unescaped in encodeURIComponent's output; escape them too.
+  const filename = encodeURIComponent(entry.filename).replace(
+    /['()*]/g,
+    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
   await client.send(
     new PutObjectCommand({
       Bucket: bucket,

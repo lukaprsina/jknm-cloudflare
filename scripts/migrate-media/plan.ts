@@ -27,10 +27,10 @@ export function select_media<Row extends { id: string }>({
 }
 
 /**
- * The size an image is shown at: EXIF orientations 5 to 8 are quarter turns,
+ * The natural size (see GLOSSARY): EXIF orientations 5 to 8 are quarter turns,
  * which browsers and Cloudflare apply, so width and height swap.
  */
-export function display_size({
+export function natural_size({
   width,
   height,
   orientation = 1,

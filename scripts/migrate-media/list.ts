@@ -1,5 +1,5 @@
 /**
- * Step 1 of the media migration: which prod media rows get copied.
+ * Step 2 of the migration (PLAN-media): which prod media rows get copied.
  * Reads the DB (a restored dump) and the thumbnail audit; writes
  * `<staging>/list.json`. Usage: vpx scripts/migrate-media/list.ts
  */
@@ -25,14 +25,18 @@ const media = await pool.query<{
 );
 
 // Ids in prod content must all be lowercase: `media_id_of` parses lowercase only.
+// Every article counts here, deleted ones too: the builder keeps them all.
+const any_uppercase = await pool.query(
+  `select 1 from articles where content_json::text ~ 'gradivo\\.jknm\\.org/[0-9a-f-]*[A-F]'`,
+);
+if (any_uppercase.rowCount) throw new Error("uppercase media ids in content");
+
 const in_content = await pool.query<{ id: string }>(
   `select distinct m[1] as id
      from articles a,
           regexp_matches(a.content_json::text, 'gradivo\\.jknm\\.org/([0-9a-fA-F-]{36})/', 'g') as m
     where a.deleted_at is null`,
 );
-const uppercase = in_content.rows.filter(({ id }) => id !== id.toLowerCase());
-if (uppercase.length > 0) throw new Error(`uppercase media ids in content: ${uppercase.length}`);
 
 const live_thumbnails = await pool.query<{ id: string }>(
   `select distinct thumbnail_media_id as id from articles
@@ -52,7 +56,8 @@ const still_embedded = [...replaced_thumbnails].filter((id) =>
   in_content.rows.some((row) => row.id === id),
 );
 if (still_embedded.length > 0) throw new Error(`replaced but embedded: ${still_embedded.length}`);
-if (kept.some((row) => row.content_type === "image/heif")) throw new Error("a kept row is AVIF");
+if (kept.some((row) => row.content_type === "image/heif"))
+  throw new Error("a kept row is image/heif (really AVIF)");
 
 mkdirSync(STAGING_DIR, { recursive: true });
 writeFileSync(join(STAGING_DIR, "list.json"), JSON.stringify(kept, null, 1));
