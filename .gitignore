@@ -15,3 +15,8 @@ next-env.d.ts
 !.env.example
 .dev.vars
 .dev.vars.*
+
+# thumbnail audit
+/artifacts/
+tools/**/.venv/
+__pycache__/
