@@ -79,11 +79,11 @@ Layout/nav/footer, homepage keyset feed, `/novica/<slug>`, static pages, robots/
 
 ## 5. Media
 
-R2 binding, Images, upload/ingest, `reconcile-media`. Bucket copy with superslurper is a cutover step. Open: upload size vs Worker body limit (decide from docs); no spike done.
+**Done** (branch `feat/media`). `media` table (immutable, URL derived from id and ext), `reconcile-media`, `create_media` and `sweep_orphans` in `server/media/`, `PUT /api/media` (streamed, `Content-Length` required, 100 MB / 20 MB caps, type allowlist), `MEDIA` and `IMAGES` bindings, `cdn-cgi/image` variants in `lib/media-url.ts`. The bucket is copied by `scripts/migrate-media/`, not Super Slurper; it is already in `jknm-media`, and the DB is built from the manifest at cutover. Still to do: attach `gradivo.jknm.org` and run `build-db.ts` at cutover, wire `sweep_orphans` into the cron (step 8).
 
 ## 6. Admin and editor
 
-`/uredi`, EditorJS (works in dev and build; upload tools and save round-trip untested), lifecycle actions, `/preveri`, `/avtorji`, member sync (`fetch` + `jose`, ready).
+`/uredi`, EditorJS (works in dev and build; upload tools and save round-trip untested). Upload contract from step 5: the editor resizes to at most 1600 px and re-encodes in the browser (drops EXIF and GPS), then `PUT /api/media?filename=&type=&sha256=&thumbhash=` with the raw bytes; `sha256` is of the bytes sent, and the thumbhash is of the re-encoded image. Cards use a 16:9 crop UI on `react-image-crop`. lifecycle actions, `/preveri`, `/avtorji`, member sync (`fetch` + `jose`, ready).
 
 Backfill `better-result` into `server/article/lifecycle-rules` here, when the first caller exists: one `RuleViolation` tagged error (`rule` field, `message`), mapped to `code: "rule"` by `action`. Leave `one` / `found` / `find_source` as throws (invariants, not expected failures).
 
