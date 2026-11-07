@@ -45,9 +45,13 @@ Source and docs for some dependencies are checked out read-only in `.references/
 ### Ungrouped
 
 ```text
-[jknm @ main 89d48c2] The repo currently powering www.jknm.si (Next.js on Vercel), we are migrating to this project, Vinext on Cloudflare.
+[jknm @ main 59a352c] The repo currently powering www.jknm.si (Next.js on Vercel); we are migrating it to this project, Vinext on Cloudflare.
 [better-result @ v3.0.1 75d0b10] Packages: better-result.
 [cn @ main b6a8dbe] Fast, small, compiled class-name merging for Tailwind CSS. Drop-in replacement for clsx + tailwind-merge. Packages: cn. Start: README.md.
+[vinext @ main 2ceb012] Run Next.js apps on Vite. Drop-in replacement for the next CLI. Packages: vinext. Start: docs/index.mdx.
+[cloudflare-docs @ production 06c702d] Welcome to the open-source repository for all [Cloudflare's Documentation](https://developers.cloudflare.com/).
+[drizzle-orm @ main eab8bed] Drizzle ORM package for SQL databases. Packages: drizzle-orm.
+[drizzle-orm-docs @ main 7f7f847] Drizzle ORM documentation website.
 ```
 
 <!-- END:refs -->

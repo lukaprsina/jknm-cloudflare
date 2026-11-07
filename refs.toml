@@ -1,6 +1,6 @@
 [repos.jknm]
 url = "https://github.com/lukaprsina/jknm"
-description = "The repo currently powering www.jknm.si (Next.js on Vercel), we are migrating to this project, Vinext on Cloudflare."
+description = "The repo currently powering www.jknm.si (Next.js on Vercel); we are migrating it to this project, Vinext on Cloudflare."
 
 [repos.better-result]
 url = "https://github.com/dmmulroy/better-result"
@@ -15,3 +15,27 @@ origin = "npm:cn"
 paths = ["docs", "packages/cn"]
 packages = ["cn"]
 start = ["README.md"]
+
+[repos.vinext]
+url = "https://github.com/cloudflare/vinext"
+description = "Run Next.js apps on Vite. Drop-in replacement for the next CLI."
+origin = "npm:vinext"
+packages = ["vinext"]
+start = ["docs/index.mdx"]
+
+[repos.cloudflare-docs]
+url = "https://github.com/cloudflare/cloudflare-docs"
+description = "Welcome to the open-source repository for all [Cloudflare's Documentation](https://developers.cloudflare.com/)."
+paths = ["src/content"]
+
+[repos.drizzle-orm]
+url = "https://github.com/drizzle-team/drizzle-orm"
+description = "Drizzle ORM package for SQL databases"
+origin = "npm:drizzle-orm"
+paths = ["drizzle-orm"]
+packages = ["drizzle-orm"]
+
+[repos.drizzle-orm-docs]
+url = "https://github.com/drizzle-team/drizzle-orm-docs"
+description = "Drizzle ORM documentation website"
+paths = ["src/content"]
