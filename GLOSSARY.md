@@ -17,4 +17,4 @@ Domain vocabulary for the JKNM (Jamarski klub Novo mesto) news site: articles, t
 - **Author**: a byline entry on an article, either a club `member` or a `guest`.
 - **Lightbox**: the full-screen overlay that shows one article image at a time, with its caption. Opened by clicking an image in an article.
 - **Gallery**: the ordered set of an article's images that one lightbox steps through. Not a separate content type; it is derived from the article's image blocks.
-- **Natural size**: an image's stored pixel size. The article shows small images enlarged (display size), but the lightbox lays out and zooms against the natural size, so a 480 px image never looks sharper than it is.
+- **Natural size**: an image's stored pixel size, after EXIF rotation (the `media` row's width and height). The article shows small images enlarged (display size), but the lightbox lays out and zooms against the natural size, so a 480 px image never looks sharper than it is.

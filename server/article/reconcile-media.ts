@@ -16,20 +16,26 @@ export async function reconcile_media_to_articles(
   content: ArticleContentType | null | undefined,
   thumbnail_media_id: string | null,
 ) {
-  const wanted = new Set(media_urls_in_content(content).map(media_id_of));
-  wanted.delete(null);
+  const wanted = new Set(
+    media_urls_in_content(content)
+      .map(media_id_of)
+      .filter((id) => id !== null),
+  );
   if (thumbnail_media_id) wanted.add(thumbnail_media_id);
 
-  const existing =
+  const existing = new Set(
     wanted.size === 0
       ? []
-      : await tx
-          .select({ id: Media.id })
-          .from(Media)
-          .where(inArray(Media.id, [...wanted] as string[]));
-  const existing_ids = new Set(existing.map((row) => row.id));
+      : (
+          await tx
+            .select({ id: Media.id })
+            .from(Media)
+            .where(inArray(Media.id, [...wanted]))
+        ).map((row) => row.id),
+  );
+  // Content order first, then the thumbnail.
   const desired = new Map<string, number>(); // media_id -> order
-  for (const id of wanted) if (id && existing_ids.has(id)) desired.set(id, desired.size);
+  for (const id of wanted) if (existing.has(id)) desired.set(id, desired.size);
 
   const current = new Map(
     (
