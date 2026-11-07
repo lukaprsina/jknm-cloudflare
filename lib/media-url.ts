@@ -18,20 +18,23 @@ export interface ImageSource {
   width: number;
   /** Cards only: the part of the image to show. */
   crop?: Crop;
+  /** Base64 ThumbHash, shown by `MediaImage` while the picture loads. */
+  thumbhash?: string | null;
 }
 
-const VARIANTS: Record<ImageVariant, { width: number; height?: number }> = {
-  body: { width: 960 },
-  lightbox: { width: 1600 },
-  card: { width: 480, height: 270 },
-  "card-featured": { width: 960, height: 540 },
-  og: { width: 1200 },
+/** `height` makes a variant a cropped box; the others only shrink to `width`. `og` is JPEG for crawlers. */
+const VARIANTS: Record<ImageVariant, { width: number; height?: number; format: string }> = {
+  body: { width: 960, format: "auto" },
+  lightbox: { width: 1600, format: "auto" },
+  card: { width: 480, height: 270, format: "auto" },
+  "card-featured": { width: 960, height: 540, format: "auto" },
+  og: { width: 1200, format: "jpeg" },
 };
 
 const TRANSFORMABLE = /\.(?:jpe?g|png|gif|webp)$/i;
 
 /** A fraction of the image, 0 to 1; crop rectangles overshoot by rounding error. */
-const fraction = (value: number) => +Math.min(1, Math.max(0, value)).toFixed(4);
+const fraction = (value: number) => Number(Math.min(1, Math.max(0, value)).toFixed(4));
 
 function trim_of({ x, y, width, height }: Crop) {
   const top = fraction(y / 100);
@@ -62,8 +65,18 @@ export function image_src({ url, width, crop }: ImageSource, variant: ImageVaria
     ...(crop ? [trim_of(crop)] : []),
     `width=${wanted.width}`,
     ...(wanted.height ? [`height=${wanted.height}`, "fit=cover"] : ["fit=scale-down"]),
-    `format=${variant === "og" ? "jpeg" : "auto"}`,
+    `format=${wanted.format}`,
     "onerror=redirect",
   ];
   return `${MEDIA_ORIGIN}/cdn-cgi/image/${options.join(",")}/${url.slice(MEDIA_ORIGIN.length + 1)}`;
+}
+
+/**
+ * The lightbox lays out and zooms against this size: the stored size, but never
+ * more than the 1600 px picture it loads, so the largest zoom is not a stretched one.
+ */
+export function lightbox_natural({ width, height }: { width: number; height: number }) {
+  const max = VARIANTS.lightbox.width;
+  if (width <= max) return { width, height };
+  return { width: max, height: Math.round((height * max) / width) };
 }

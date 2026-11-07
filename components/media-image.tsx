@@ -18,7 +18,7 @@ export function MediaImage({
   style,
   ...rest
 }: {
-  image: ImageSource & { thumbhash?: string | null };
+  image: ImageSource;
   variant: ImageVariant;
 } & Omit<ComponentProps<"img">, "src">) {
   return (

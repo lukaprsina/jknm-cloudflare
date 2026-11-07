@@ -2,6 +2,7 @@ import { cn } from "cn";
 import { useEffect, useState } from "react";
 import { Inline } from "@/components/inline";
 import { MediaImage } from "@/components/media-image";
+import { lightbox_natural } from "@/lib/media-url";
 import type { LightboxImage } from "./types";
 import { PADDING, slide_layout } from "./slide-layout";
 import type { Size } from "./slide-layout";
@@ -44,7 +45,7 @@ export function Slide({
   const [caption_height, set_caption_height] = useState<number | null>(null);
   const [caption_el, set_caption_el] = useState<HTMLDivElement | null>(null);
   const [img, set_img] = useState<HTMLImageElement | null>(null);
-  const natural = { width: image.width, height: image.height };
+  const natural = lightbox_natural(image);
   const has_caption = image.caption !== null && image.caption.length > 0;
 
   // The caption's full height at its real width: scrollHeight ignores the max-height cap, so the

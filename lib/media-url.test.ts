@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { image_src } from "./media-url";
+import { image_src, lightbox_natural } from "./media-url";
 
 const ORIGIN = "https://gradivo.jknm.org";
 const KEY = "0b0f1c2e-1111-4222-8333-444455556666/original";
@@ -77,7 +77,7 @@ describe("image_src", () => {
     });
 
     it("clamp a rectangle that overshoots the image by rounding error", () => {
-      const crop = { x: 0, y: 0, width: 100.0002, height: 100 };
+      const crop = { x: -0.0001, y: 0, width: 100.0002, height: 100 };
       expect(image_src(jpeg(2000, crop), "card")).toContain("trim=0;0;0;0,");
     });
 
@@ -89,5 +89,12 @@ describe("image_src", () => {
     it("serve a small uncropped source as it is; CSS fills the box", () => {
       expect(image_src(jpeg(300), "card")).toBe(`${ORIGIN}/${KEY}.jpg`);
     });
+  });
+});
+
+describe("lightbox_natural", () => {
+  it("is the stored size up to the lightbox variant's 1600 px, scaled down beyond", () => {
+    expect(lightbox_natural({ width: 1200, height: 800 })).toEqual({ width: 1200, height: 800 });
+    expect(lightbox_natural({ width: 3200, height: 2400 })).toEqual({ width: 1600, height: 1200 });
   });
 });
